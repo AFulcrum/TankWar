@@ -4,8 +4,13 @@ import Base.HomeIcon;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.io.IOException;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class ModeCardLayOut {
     public ModeCardLayOut(JFrame frame, HomeIcon homeIcon) {
@@ -134,27 +139,28 @@ public class ModeCardLayOut {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBackground(new Color(159, 248, 201));
 
-        // 标题
+        AtomicReference<String> selectedTank = new AtomicReference<>(null); // 存储选中的坦克
+        List<JPanel> tankPanels = new ArrayList<>();// 存储所有坦克面板
+
         JLabel title = new JLabel("坦克选择", JLabel.CENTER);
         title.setFont(new Font("华文行楷", Font.BOLD, 24));
         title.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
 
-        // 坦克选择内容
         JPanel contentPanel = new JPanel(new GridLayout(2, 2, 20, 20));
         contentPanel.setBorder(BorderFactory.createEmptyBorder(20, 50, 20, 50));
         contentPanel.setBackground(new Color(255, 255, 255));
-        int i=1;
         String[] tankTypes = {"红坦克", "蓝坦克", "绿坦克", "黄坦克"};
-        for (String type : tankTypes) {
+        for (int i = 0; i < tankTypes.length; i++) {
             JPanel tankPanel = new JPanel(new BorderLayout());
             tankPanel.setBorder(BorderFactory.createLineBorder(Color.GRAY, 1));
             tankPanel.setBackground(Color.WHITE);
+            tankPanels.add(tankPanel);// 添加到所有坦克的列表
 
-            JLabel label = new JLabel(type, JLabel.CENTER);
+            JLabel label = new JLabel(tankTypes[i], JLabel.CENTER);
             label.setFont(new Font("华文行楷", Font.BOLD, 25));
 
             //添加坦克图片
-            String tankImagePath = "/Images/TankImage/tank"+(i++)+"/up1.png";
+            String tankImagePath="/Images/TankImage/tank"+(i+1)+"/up1.png";
             try{
                 URL tankImageUrl=ModeCardLayOut.class.getResource(tankImagePath);
                 if(tankImageUrl==null){
@@ -165,6 +171,18 @@ public class ModeCardLayOut {
                 JLabel imageLabel = new JLabel(new ImageIcon(tankImage));
                 tankPanel.add(label, BorderLayout.NORTH);
                 tankPanel.add(imageLabel, BorderLayout.CENTER);
+                //鼠标点击
+                int finalI = i;
+                tankPanel.addMouseListener(new MouseAdapter() {
+                    @Override
+                    public void mouseClicked(MouseEvent e) {
+                        for (JPanel panel : tankPanels) {
+                            panel.setBorder(BorderFactory.createLineBorder(Color.GRAY, 1));
+                        }
+                        tankPanel.setBorder(BorderFactory.createLineBorder(Color.RED, 13));
+                        selectedTank.set(tankTypes[finalI]);
+                    }
+                });
             }catch(IOException e){
                 System.err.println(e);
                 JLabel placeholder = new JLabel("图片加载失败");
@@ -178,13 +196,21 @@ public class ModeCardLayOut {
         //重新选择
         JButton againButton=new JButton("重新选择");
         againButton.addActionListener(e -> {
-
+            for (JPanel newpanel :tankPanels){
+                newpanel.setBorder(BorderFactory.createLineBorder(Color.GRAY, 1));
+            }
+            selectedTank.set(null);
         });
 
         //确定按钮
         JButton sureButton=new JButton("确定选择");
         sureButton.addActionListener(e -> {
-
+            if(selectedTank.get()==null){
+                JOptionPane.showMessageDialog(panel,"请先选择一个坦克!", "提示", JOptionPane.WARNING_MESSAGE);
+            }else {
+                JOptionPane.showMessageDialog(panel, "已选择: " + selectedTank.get(), "选择确认", JOptionPane.INFORMATION_MESSAGE);
+                cardLayout.show(mainPanel, "Menu");
+            }
         });
 
         // 返回按钮
@@ -252,38 +278,19 @@ public class ModeCardLayOut {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBackground(new Color(230, 255, 230));
 
-        // 标题
         JLabel title = new JLabel("人机对战", JLabel.CENTER);
         title.setFont(new Font("华文行楷", Font.BOLD, 24));
         title.setBorder(BorderFactory.createEmptyBorder(20, 0, 20, 0));
 
-        // 难度选择
-        JPanel difficultyPanel = new JPanel();
-        difficultyPanel.setBorder(BorderFactory.createTitledBorder("选择难度"));
-        ButtonGroup group = new ButtonGroup();
-        JRadioButton easy = new JRadioButton("简单");
-        JRadioButton medium = new JRadioButton("中等");
-        JRadioButton hard = new JRadioButton("困难");
-        group.add(easy);
-        group.add(medium);
-        group.add(hard);
-        difficultyPanel.add(easy);
-        difficultyPanel.add(medium);
-        difficultyPanel.add(hard);
-        medium.setSelected(true);
+        //关卡数
+        JPanel aiTankLevel=new JPanel();
+        aiTankLevel.setBackground(new Color(255, 230, 230));
+//        JLabel aiLevel=new JLabel("第"+level+"关");
 
         // 游戏区域
         JPanel gamePanel = new JPanel();
         gamePanel.setBorder(BorderFactory.createTitledBorder("游戏区域"));
         gamePanel.setPreferredSize(new Dimension(400, 300));
-
-        // 控制说明
-        JTextArea controls = new JTextArea(
-                "玩家控制: 方向键移动，空格键射击\n" +
-                        "AI将自动控制敌方坦克"
-        );
-        controls.setEditable(false);
-        controls.setBackground(new Color(230, 255, 230));
 
         // 开始和返回按钮
         JButton startButton = new JButton("开始游戏");
@@ -292,14 +299,14 @@ public class ModeCardLayOut {
 
         JPanel buttonPanel = new JPanel();
         buttonPanel.setBorder(BorderFactory.createEmptyBorder(20, 0, 20, 0));
-        buttonPanel.add(startButton);
-        buttonPanel.add(Box.createRigidArea(new Dimension(20, 0)));
         buttonPanel.add(backButton);
+        buttonPanel.add(Box.createRigidArea(new Dimension(20, 0)));
+        buttonPanel.add(startButton);
 
         panel.add(title, BorderLayout.NORTH);
-        panel.add(difficultyPanel, BorderLayout.WEST);
+//        panel.add(difficultyPanel, BorderLayout.WEST);
         panel.add(gamePanel, BorderLayout.CENTER);
-        panel.add(controls, BorderLayout.EAST);
+//        panel.add(controls, BorderLayout.EAST);
         panel.add(buttonPanel, BorderLayout.SOUTH);
 
         return panel;
