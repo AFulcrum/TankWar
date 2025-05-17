@@ -11,6 +11,7 @@ public class configTool {
         loadConfig();
     }
 
+    //加载配置文件
     protected static void loadConfig() {
         try (InputStream input = configTool.class.getClassLoader().getResourceAsStream(CONFIG_FILE)) {
             if (input != null) {
@@ -27,12 +28,18 @@ public class configTool {
     protected static void initDefaultConfig() {
         props.setProperty("level", "1");
         props.setProperty("tankWhetherSelected", "false");
-        props.setProperty("tankSelected", "null");
+        props.setProperty("selectedTank", "null");
     }
 
+    //保存配置文件
     public static void saveConfig() {
+        File configDir = new File("Config");
+        if (!configDir.exists()) {
+            configDir.mkdirs(); // 创建目录（包括所有不存在的父目录）
+        }
+
         try (OutputStream output = new FileOutputStream(
-                "src/main/resources/" + CONFIG_FILE)) {
+                "Config/" + CONFIG_FILE)) {
             props.store(output, "Tank Configuration");
         } catch (IOException ex) {
             System.err.println("无法保存配置文件");
@@ -50,12 +57,12 @@ public class configTool {
     }
 
     public static String getSelectedTank() {
-        return props.getProperty("tankSelected");
+        return props.getProperty("selectedTank");
     }
 
     public static void setTankSelection(String tankType) {
         props.setProperty("tankWhetherSelected", "true");
-        props.setProperty("tankSelected", tankType);
+        props.setProperty("selectedTank", tankType);
         saveConfig();
     }
 

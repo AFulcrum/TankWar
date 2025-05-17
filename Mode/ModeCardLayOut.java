@@ -1,6 +1,7 @@
 package Mode;
 
 import Base.HomeIcon;
+import Config.configTool;
 
 import javax.swing.*;
 import java.awt.*;
@@ -10,7 +11,6 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
 
 public class ModeCardLayOut {
     public ModeCardLayOut(JFrame frame, HomeIcon homeIcon) {
@@ -139,7 +139,6 @@ public class ModeCardLayOut {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBackground(new Color(159, 248, 201));
 
-        AtomicReference<String> selectedTank = new AtomicReference<>(null); // 存储选中的坦克
         List<JPanel> tankPanels = new ArrayList<>();// 存储所有坦克面板
 
         JLabel title = new JLabel("坦克选择", JLabel.CENTER);
@@ -171,18 +170,22 @@ public class ModeCardLayOut {
                 JLabel imageLabel = new JLabel(new ImageIcon(tankImage));
                 tankPanel.add(label, BorderLayout.NORTH);
                 tankPanel.add(imageLabel, BorderLayout.CENTER);
-                //鼠标点击
+                //鼠标点击,当没有选择时才能点击有效
                 int finalI = i;
                 tankPanel.addMouseListener(new MouseAdapter() {
                     @Override
                     public void mouseClicked(MouseEvent e) {
-                        for (JPanel panel : tankPanels) {
-                            panel.setBorder(BorderFactory.createLineBorder(Color.GRAY, 1));
+                        // 只有在未选择坦克时才允许选择
+                        if(!configTool.isTankSelected()) {
+                            for (JPanel panel : tankPanels) {
+                                panel.setBorder(BorderFactory.createLineBorder(Color.GRAY, 1));
+                            }
+                            tankPanel.setBorder(BorderFactory.createLineBorder(Color.RED, 10));
+                            configTool.setTankSelection(tankTypes[finalI]);
                         }
-                        tankPanel.setBorder(BorderFactory.createLineBorder(Color.RED, 13));
-                        selectedTank.set(tankTypes[finalI]);
                     }
                 });
+
             }catch(IOException e){
                 System.err.println(e);
                 JLabel placeholder = new JLabel("图片加载失败");
@@ -199,16 +202,17 @@ public class ModeCardLayOut {
             for (JPanel newpanel :tankPanels){
                 newpanel.setBorder(BorderFactory.createLineBorder(Color.GRAY, 1));
             }
-            selectedTank.set(null);
+            configTool.resetTankSelection();
+//            selectedTank.set(null);
         });
 
         //确定按钮
         JButton sureButton=new JButton("确定选择");
         sureButton.addActionListener(e -> {
-            if(selectedTank.get()==null){
+            if(!configTool.isTankSelected()){
                 JOptionPane.showMessageDialog(panel,"请先选择一个坦克!", "提示", JOptionPane.WARNING_MESSAGE);
             }else {
-                JOptionPane.showMessageDialog(panel, "已选择: " + selectedTank.get(), "选择确认", JOptionPane.INFORMATION_MESSAGE);
+                JOptionPane.showMessageDialog(panel, "已选择: " + configTool.getSelectedTank(), "选择确认", JOptionPane.INFORMATION_MESSAGE);
                 cardLayout.show(mainPanel, "Menu");
             }
         });
