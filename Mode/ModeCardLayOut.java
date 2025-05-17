@@ -4,7 +4,8 @@ import Base.HomeIcon;
 
 import javax.swing.*;
 import java.awt.*;
-
+import java.io.IOException;
+import java.net.URL;
 
 public class ModeCardLayOut {
     public ModeCardLayOut(JFrame frame, HomeIcon homeIcon) {
@@ -112,7 +113,7 @@ public class ModeCardLayOut {
         rulesText.setBackground(Color.WHITE);
 
         // 返回按钮
-        JButton backButton = new JButton("返回主菜单");
+        JButton backButton = new JButton("返回主页");
         backButton.addActionListener(e -> cardLayout.show(mainPanel, "Menu"));
         backButton.setFont(new Font("华文行楷", Font.PLAIN, 16));
 
@@ -150,24 +151,51 @@ public class ModeCardLayOut {
             tankPanel.setBackground(Color.WHITE);
 
             JLabel label = new JLabel(type, JLabel.CENTER);
-            label.setFont(new Font("华文行楷", Font.BOLD, 18));
+            label.setFont(new Font("华文行楷", Font.BOLD, 25));
 
-            // 这里可以添加坦克图片
-            JLabel imageLabel = new JLabel(new ImageIcon("Images/TankImage/tank1"+"up1.png"), JLabel.CENTER);
-
-            tankPanel.add(label, BorderLayout.NORTH);
-            tankPanel.add(imageLabel, BorderLayout.CENTER);
-
+            //添加坦克图片
+            String tankImagePath = "/Images/TankImage/tank"+(i++)+"/up1.png";
+            try{
+                URL tankImageUrl=ModeCardLayOut.class.getResource(tankImagePath);
+                if(tankImageUrl==null){
+                    throw new IOException("图片不存在: " + tankImagePath);
+                }
+                ImageIcon tankImageIcon = new ImageIcon(tankImageUrl);
+                Image tankImage = tankImageIcon.getImage().getScaledInstance(150, 150, Image.SCALE_FAST);
+                JLabel imageLabel = new JLabel(new ImageIcon(tankImage));
+                tankPanel.add(label, BorderLayout.NORTH);
+                tankPanel.add(imageLabel, BorderLayout.CENTER);
+            }catch(IOException e){
+                System.err.println(e);
+                JLabel placeholder = new JLabel("图片加载失败");
+                placeholder.setForeground(Color.RED);
+                tankPanel.add(placeholder, BorderLayout.CENTER);
+            }
             contentPanel.add(tankPanel);
+
         }
 
+        //重新选择
+        JButton againButton=new JButton("重新选择");
+        againButton.addActionListener(e -> {
+
+        });
+
+        //确定按钮
+        JButton sureButton=new JButton("确定选择");
+        sureButton.addActionListener(e -> {
+
+        });
+
         // 返回按钮
-        JButton backButton = new JButton("返回主菜单");
+        JButton backButton = new JButton("返回主页");
         backButton.addActionListener(e -> cardLayout.show(mainPanel, "Menu"));
 
         JPanel buttonPanel = new JPanel();
         buttonPanel.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
         buttonPanel.add(backButton);
+        buttonPanel.add(againButton);
+        buttonPanel.add(sureButton);
         buttonPanel.setBackground(new Color(175, 248, 209));
 
         panel.add(title, BorderLayout.NORTH);
@@ -202,7 +230,7 @@ public class ModeCardLayOut {
 
         // 开始和返回按钮
         JButton startButton = new JButton("开始游戏");
-        JButton backButton = new JButton("返回主菜单");
+        JButton backButton = new JButton("返回主页");
         backButton.addActionListener(e -> cardLayout.show(mainPanel, "Menu"));
 
         JPanel buttonPanel = new JPanel();
@@ -259,7 +287,7 @@ public class ModeCardLayOut {
 
         // 开始和返回按钮
         JButton startButton = new JButton("开始游戏");
-        JButton backButton = new JButton("返回主菜单");
+        JButton backButton = new JButton("返回主页");
         backButton.addActionListener(e -> cardLayout.show(mainPanel, "Menu"));
 
         JPanel buttonPanel = new JPanel();

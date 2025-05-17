@@ -24,7 +24,7 @@ public class HomeIcon {
 
     private void initHomeIcon(JFrame frame) {
         // 创建主界面Logo
-        homeLogoPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+        homeLogoPanel = new JPanel();
         homeLogoPanel.setLayout(new FlowLayout(FlowLayout.CENTER, 0, 0));
         homeLogoPanel.setOpaque(false);
         // 创建Logo标签
