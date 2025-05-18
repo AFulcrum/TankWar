@@ -1,7 +1,7 @@
-import Base.GameJFrame;
-import Base.HomeIcon;
-import Base.GameJMenuBar;
-import Base.Start_Animation;
+import Structure.GameJFrame;
+import Structure.HomeIcon;
+import Structure.GameJMenuBar;
+import Structure.Start_Animation;
 import Mode.ModeCardLayOut;
 
 import java.awt.*;

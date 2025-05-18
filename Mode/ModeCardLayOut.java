@@ -1,9 +1,9 @@
 package Mode;
 
-import Base.HomeIcon;
-import Config.configTool;
-
-import javax.swing.*;
+import Config.ConfigTool;
+import Config.SimpleCollisionDetector;
+import InterFace.CollisionDetector;
+import Structure.HomeIcon;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import javax.swing.*;
 
 public class ModeCardLayOut {
     public ModeCardLayOut(JFrame frame, HomeIcon homeIcon) {
@@ -28,14 +29,14 @@ public class ModeCardLayOut {
         // 3. 创建坦克选择面板
         JPanel tankSelectionPanel = createTankSelectionPanel(cardLayout, mainPanel);
         // 4. 创建坦克战争面板
-        JPanel pvpPanel = createPVPPanel(cardLayout, mainPanel);
+        // JPanel pvpPanel = createPVPPanel(cardLayout, mainPanel);
         // 5. 创建人机对战面板
         JPanel pvePanel = createPVEPanel(cardLayout, mainPanel);
         // 将所有面板添加到主面板
         mainPanel.add(menuPanel, "Menu");
         mainPanel.add(rulesPanel, "Rules");
         mainPanel.add(tankSelectionPanel, "TankSelection");
-        mainPanel.add(pvpPanel, "PVP");
+        mainPanel.add(new JPanel(), "PVP"); // 占位，后续动态替换
         mainPanel.add(pvePanel, "PVE");
         // 设置窗口布局
 
@@ -64,19 +65,23 @@ public class ModeCardLayOut {
             button.setMargin(new Insets(10, 20, 10, 20));
             // 添加按钮事件
             button.addActionListener(e -> {
-                switch(item) {
-                    case "游戏规则":
-                        cardLayout.show(mainPanel, "Rules");
-                        break;
-                    case "坦克选择":
-                        cardLayout.show(mainPanel, "TankSelection");
-                        break;
-                    case "坦克战争":
+                switch (item) {
+                    case "游戏规则" -> cardLayout.show(mainPanel, "Rules");
+                    case "坦克选择" -> cardLayout.show(mainPanel, "TankSelection");
+                    case "坦克战争" -> {
+                        JPanel newPvpPanel = createPVPPanel(cardLayout, mainPanel);
+                        mainPanel.remove(mainPanel.getComponent(3)); // 移除旧的PVP面板（假设顺序不变）
+                        mainPanel.add(newPvpPanel, "PVP");
                         cardLayout.show(mainPanel, "PVP");
-                        break;
-                    case "人机对战":
-                        cardLayout.show(mainPanel, "PVE");
-                        break;
+                        // 让PVPMode获得焦点
+                        Component[] comps = ((JPanel)newPvpPanel).getComponents();
+                        for (Component c : comps) {
+                            if (c instanceof PVPMode pvp) {
+                                SwingUtilities.invokeLater(pvp::requestFocusInWindow);
+                            }
+                        }
+                    }
+                    case "人机对战" -> cardLayout.show(mainPanel, "PVE");
                 }
             });
             buttonPanel.add(button);
@@ -102,8 +107,8 @@ public class ModeCardLayOut {
                     游戏规则:
                     ↑ - 向上移动
                     ↓ - 向下移动
-                    ← - 向左移动
-                    → - 向右移动
+                    ← - 左转
+                    → - 右转
                     X - 使用技能
                     空格 - 发射子弹
                     
@@ -176,18 +181,18 @@ public class ModeCardLayOut {
                     @Override
                     public void mouseClicked(MouseEvent e) {
                         // 只有在未选择坦克时才允许选择
-                        if(!configTool.isTankSelected()) {
+                        if(!ConfigTool.isTankSelected()) {
                             for (JPanel panel : tankPanels) {
                                 panel.setBorder(BorderFactory.createLineBorder(Color.GRAY, 1));
                             }
                             tankPanel.setBorder(BorderFactory.createLineBorder(Color.RED, 10));
-                            configTool.setTankSelection(tankTypes[finalI]);
+                            ConfigTool.setTankSelection(tankTypes[finalI]);
                         }
                     }
                 });
 
             }catch(IOException e){
-                System.err.println(e);
+//                System.err.println(e);
                 JLabel placeholder = new JLabel("图片加载失败");
                 placeholder.setForeground(Color.RED);
                 tankPanel.add(placeholder, BorderLayout.CENTER);
@@ -202,17 +207,16 @@ public class ModeCardLayOut {
             for (JPanel newpanel :tankPanels){
                 newpanel.setBorder(BorderFactory.createLineBorder(Color.GRAY, 1));
             }
-            configTool.resetTankSelection();
-//            selectedTank.set(null);
+            ConfigTool.resetTankSelection();
         });
 
         //确定按钮
         JButton sureButton=new JButton("确定选择");
         sureButton.addActionListener(e -> {
-            if(!configTool.isTankSelected()){
+            if(!ConfigTool.isTankSelected()){
                 JOptionPane.showMessageDialog(panel,"请先选择一个坦克!", "提示", JOptionPane.WARNING_MESSAGE);
             }else {
-                JOptionPane.showMessageDialog(panel, "已选择: " + configTool.getSelectedTank(), "选择确认", JOptionPane.INFORMATION_MESSAGE);
+                JOptionPane.showMessageDialog(panel, "已选择: " + ConfigTool.getSelectedTank(), "选择确认", JOptionPane.INFORMATION_MESSAGE);
                 cardLayout.show(mainPanel, "Menu");
             }
         });
@@ -238,39 +242,69 @@ public class ModeCardLayOut {
     // 创建坦克战争面板
     private static JPanel createPVPPanel(CardLayout cardLayout, JPanel mainPanel) {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.setBackground(new Color(255, 230, 230));
+        panel.setBackground(new Color(217, 248, 240));
 
         // 标题
         JLabel title = new JLabel("坦克战争", JLabel.CENTER);
-        title.setFont(new Font("华文行楷", Font.BOLD, 24));
-        title.setBorder(BorderFactory.createEmptyBorder(20, 0, 20, 0));
+        title.setFont(new Font("华文行楷", Font.BOLD, 30));
+        title.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
+
+        //击败数
+        JPanel beatNumPanel = new JPanel(new BorderLayout());
+        beatNumPanel.setBackground(new Color(199, 248, 235));
+        JLabel beatNumLabel = new JLabel("<html><div style='text-align: center;'>击<br>败<br>数<br>"
+                + ConfigTool.getBeatNum() + "</html>");
+        beatNumLabel.setFont(new Font("华文行楷", Font.BOLD, 30));
+        beatNumLabel.setForeground(Color.RED);
+        beatNumLabel.setHorizontalAlignment(JLabel.CENTER);
+        beatNumPanel.add(beatNumLabel,BorderLayout.CENTER);
 
         // 游戏区域
-        JPanel gamePanel = new JPanel();
-        gamePanel.setBorder(BorderFactory.createTitledBorder("游戏区域"));
-        gamePanel.setPreferredSize(new Dimension(400, 300));
+        CollisionDetector detector = new SimpleCollisionDetector();
+        PVPMode pvpMode = new PVPMode(detector);
+        pvpMode.setPreferredSize(new Dimension(600, 400));
+        //显示时请求焦点
+        SwingUtilities.invokeLater(pvpMode::requestFocusInWindow);
+        pvpMode.setBorder(BorderFactory.createTitledBorder("游戏区域"));
 
         // 控制说明
         JTextArea controls = new JTextArea(
-                "玩家1控制: 方向键移动，空格键射击\n" +
-                        "玩家2控制: WASD移动，Shift键射击"
+                """
+                        \s\s\s\s↑ - 向上移动
+                        \s\s\s\s↓ - 向下移动
+                        \s\s\s\s\s← - 左转
+                        \s\s\s\s\s→ - 右转
+                        \s\s\s\sX - 使用技能
+                         空格 - 发射子弹\s\s"""
         );
         controls.setEditable(false);
-        controls.setBackground(new Color(255, 230, 230));
+        controls.setBackground(new Color(175, 244, 227));
 
-        // 开始和返回按钮
+        // 开始,暂停和返回按钮
         JButton startButton = new JButton("开始游戏");
+        startButton.addActionListener(e -> {
+            pvpMode.startGame();
+            pvpMode.requestFocusInWindow(); // 再次确保获得焦点
+        });
+        JButton pauseButton = new JButton("暂停游戏");
+        pauseButton.addActionListener(e -> pvpMode.stopGame());
         JButton backButton = new JButton("返回主页");
-        backButton.addActionListener(e -> cardLayout.show(mainPanel, "Menu"));
+        backButton.addActionListener(e -> {
+            pvpMode.endGame();
+            cardLayout.show(mainPanel, "Menu");
+        });
 
         JPanel buttonPanel = new JPanel();
-        buttonPanel.setBorder(BorderFactory.createEmptyBorder(20, 0, 20, 0));
-        buttonPanel.add(startButton);
-        buttonPanel.add(Box.createRigidArea(new Dimension(20, 0)));
+        buttonPanel.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
         buttonPanel.add(backButton);
+        buttonPanel.add(Box.createRigidArea(new Dimension(20, 0)));
+        buttonPanel.add(pauseButton);
+        buttonPanel.add(Box.createRigidArea(new Dimension(20, 0)));
+        buttonPanel.add(startButton);
 
         panel.add(title, BorderLayout.NORTH);
-        panel.add(gamePanel, BorderLayout.CENTER);
+        panel.add(beatNumPanel, BorderLayout.WEST);
+        panel.add(pvpMode, BorderLayout.CENTER); // 直接添加PVPMode
         panel.add(controls, BorderLayout.EAST);
         panel.add(buttonPanel, BorderLayout.SOUTH);
 
@@ -283,18 +317,56 @@ public class ModeCardLayOut {
         panel.setBackground(new Color(230, 255, 230));
 
         JLabel title = new JLabel("人机对战", JLabel.CENTER);
-        title.setFont(new Font("华文行楷", Font.BOLD, 24));
-        title.setBorder(BorderFactory.createEmptyBorder(20, 0, 20, 0));
+        title.setFont(new Font("华文行楷", Font.BOLD, 30));
+        title.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
 
         //关卡数
-        JPanel aiTankLevel=new JPanel();
-        aiTankLevel.setBackground(new Color(255, 230, 230));
-//        JLabel aiLevel=new JLabel("第"+level+"关");
+        JPanel aiTankLevel = new JPanel(new BorderLayout());
+        aiTankLevel.setBackground(new Color(212, 246, 212));
+
+        JPanel aiTankLevelPanel = new JPanel(new GridLayout(2, 1, 0, 10)); // 2行1列，垂直间距10
+        aiTankLevelPanel.setBackground(new Color(212, 246, 212));
+
+        JLabel aiLevel = new JLabel("<html><div style='text-align: center;'>第<br>"
+                + ConfigTool.getLevel() +
+                "<br>关</div></html>");
+        aiLevel.setFont(new Font("华文行楷", Font.BOLD, 30));
+        aiLevel.setForeground(Color.RED);
+        aiLevel.setHorizontalAlignment(JLabel.CENTER);
+        aiLevel.setVerticalAlignment(JLabel.CENTER);
+        JLabel aiScore = new JLabel("<html><div style='text-align: center;'>我方<br>" +
+                ConfigTool.getOurScore() + ":" + ConfigTool.getEnemyScore()
+                + "<br>敌方</div></html>");
+        aiScore.setFont(new Font("华文行楷", Font.BOLD, 30));
+        aiScore.setForeground(Color.RED);
+        aiScore.setHorizontalAlignment(JLabel.CENTER);
+        aiScore.setVerticalAlignment(JLabel.CENTER);
+
+        aiLevel.setBorder(BorderFactory.createEmptyBorder(100, 0, -100, 0));
+        aiScore.setBorder(BorderFactory.createEmptyBorder(-100, 0, 100, 0));
+
+        aiTankLevelPanel.add(aiLevel);
+        aiTankLevelPanel.add(aiScore);
+
+        aiTankLevel.add(aiTankLevelPanel, BorderLayout.CENTER);
 
         // 游戏区域
         JPanel gamePanel = new JPanel();
         gamePanel.setBorder(BorderFactory.createTitledBorder("游戏区域"));
         gamePanel.setPreferredSize(new Dimension(400, 300));
+
+        // 控制说明
+        JTextArea controls = new JTextArea(
+                """
+                        \s\s\s\s↑ - 向上移动
+                        \s\s\s\s↓ - 向下移动
+                        \s\s\s\s\s← - 左转
+                        \s\s\s\s\s→ - 右转
+                        \s\s\s\sX - 使用技能
+                         空格 - 发射子弹\s\s"""
+        );
+        controls.setEditable(false);
+        controls.setBackground(new Color(217, 250, 190));
 
         // 开始和返回按钮
         JButton startButton = new JButton("开始游戏");
@@ -302,15 +374,15 @@ public class ModeCardLayOut {
         backButton.addActionListener(e -> cardLayout.show(mainPanel, "Menu"));
 
         JPanel buttonPanel = new JPanel();
-        buttonPanel.setBorder(BorderFactory.createEmptyBorder(20, 0, 20, 0));
+        buttonPanel.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
         buttonPanel.add(backButton);
         buttonPanel.add(Box.createRigidArea(new Dimension(20, 0)));
         buttonPanel.add(startButton);
 
         panel.add(title, BorderLayout.NORTH);
-//        panel.add(difficultyPanel, BorderLayout.WEST);
+        panel.add(aiTankLevel, BorderLayout.WEST);
         panel.add(gamePanel, BorderLayout.CENTER);
-//        panel.add(controls, BorderLayout.EAST);
+        panel.add(controls, BorderLayout.EAST);
         panel.add(buttonPanel, BorderLayout.SOUTH);
 
         return panel;
