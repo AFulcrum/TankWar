@@ -23,4 +23,5 @@ public interface Tank {
     // 坦克状态
     boolean isAlive(); // 坦克是否存活
     void takeDamage(int damage); // 受到伤害
+
 }

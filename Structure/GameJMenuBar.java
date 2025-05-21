@@ -1,8 +1,6 @@
 package Structure;
 
 
-import Mode.ModeCardLayOut;
-
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;

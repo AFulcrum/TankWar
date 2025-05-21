@@ -1,13 +1,24 @@
 package Config;
 
 import InterFace.CollisionDetector;
+import java.awt.Dimension;
 
 public class SimpleCollisionDetector implements CollisionDetector {
+    private Dimension gameAreaSize;
+
+    public SimpleCollisionDetector(Dimension gameAreaSize) {
+        this.gameAreaSize = gameAreaSize;
+    }
+
+    public void setGameAreaSize(Dimension size) {
+        this.gameAreaSize = size;
+    }
+
     @Override
     public boolean isColliding(int x, int y, int width, int height) {
-        // 简单的碰撞检测，后续可以添加墙体检测
-        // 检查边界
-        if (x < 0 || y < 0 || x + width > 800 || y + height > 600) {
+        if (gameAreaSize == null) return false;
+        // 检查边界碰撞
+        if (x < 0 || y < 0 || x + width > gameAreaSize.width || y + height > gameAreaSize.height) {
             return true;
         }
         return false;

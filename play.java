@@ -2,7 +2,7 @@ import Structure.GameJFrame;
 import Structure.HomeIcon;
 import Structure.GameJMenuBar;
 import Structure.Start_Animation;
-import Mode.ModeCardLayOut;
+import Structure.ModeCardLayOut;
 
 import java.awt.*;
 

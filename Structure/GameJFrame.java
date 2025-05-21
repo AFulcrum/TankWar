@@ -29,6 +29,13 @@ public class GameJFrame extends JFrame {
         setSize(1000,800);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
+
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
+
         setLocationRelativeTo(null);
+        setUndecorated(false);
+
+        // 设置窗口可调整大小
+        setResizable(true);
     }
 }

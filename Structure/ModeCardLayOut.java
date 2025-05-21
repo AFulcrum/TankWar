@@ -1,9 +1,11 @@
-package Mode;
+package Structure;
 
 import Config.ConfigTool;
+import Config.PlayerTank;
 import Config.SimpleCollisionDetector;
 import InterFace.CollisionDetector;
-import Structure.HomeIcon;
+import Mode.PVPMode;
+
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -250,21 +252,35 @@ public class ModeCardLayOut {
         title.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
 
         //击败数
-        JPanel beatNumPanel = new JPanel(new BorderLayout());
-        beatNumPanel.setBackground(new Color(199, 248, 235));
-        JLabel beatNumLabel = new JLabel("<html><div style='text-align: center;'>击<br>败<br>数<br>"
-                + ConfigTool.getBeatNum() + "</html>");
+        JPanel beatPanel = new JPanel(new GridLayout(2, 1, 0, 10));// 2行1列，垂直间距10
+        beatPanel.setPreferredSize(new Dimension(100, Integer.MAX_VALUE));
+        beatPanel.setBackground(new Color(199, 248, 235));
+        JLabel beatNumLabel = new JLabel("<html><div style='text-align: center;'>击<br>败<br>数<br>"+ ConfigTool.getBeatNum() + "</html>");
         beatNumLabel.setFont(new Font("华文行楷", Font.BOLD, 30));
         beatNumLabel.setForeground(Color.RED);
         beatNumLabel.setHorizontalAlignment(JLabel.CENTER);
-        beatNumPanel.add(beatNumLabel,BorderLayout.CENTER);
+        beatNumLabel.setVerticalAlignment(JLabel.CENTER);
+        JLabel healthLabel=new JLabel("<html><div style='text-align: center;'>生<br>命<br>值<br>"+ PlayerTank.getHealth() + "<br>---</html>");
+        healthLabel.setFont(new Font("华文行楷", Font.BOLD, 30));
+        healthLabel.setForeground(Color.RED);
+        healthLabel.setHorizontalAlignment(JLabel.CENTER);
+        healthLabel.setVerticalAlignment(JLabel.CENTER);
+        healthLabel.setBorder(BorderFactory.createEmptyBorder(100, 0, -70, 0));
+        beatNumLabel.setBorder(BorderFactory.createEmptyBorder(-100, 0, 100, 0));
+        beatPanel.add(healthLabel);
+        beatPanel.add(beatNumLabel);
 
         // 游戏区域
-        CollisionDetector detector = new SimpleCollisionDetector();
-        PVPMode pvpMode = new PVPMode(detector);
-        pvpMode.setPreferredSize(new Dimension(600, 400));
+        PVPMode pvpMode = new PVPMode(new SimpleCollisionDetector(new Dimension(0, 0)));
         //显示时请求焦点
-        SwingUtilities.invokeLater(pvpMode::requestFocusInWindow);
+        SwingUtilities.invokeLater(() -> {
+            pvpMode.requestFocusInWindow();
+            // 初始化碰撞检测区域
+            if (pvpMode.getDetector() instanceof SimpleCollisionDetector) {
+                ((SimpleCollisionDetector)pvpMode.getDetector())
+                        .setGameAreaSize(pvpMode.getSize());
+            }
+        });
         pvpMode.setBorder(BorderFactory.createTitledBorder("游戏区域"));
 
         // 控制说明
@@ -279,6 +295,7 @@ public class ModeCardLayOut {
         );
         controls.setEditable(false);
         controls.setBackground(new Color(175, 244, 227));
+        controls.setPreferredSize(new Dimension(150, Integer.MAX_VALUE));
 
         // 开始,暂停和返回按钮
         JButton startButton = new JButton("开始游戏");
@@ -303,8 +320,8 @@ public class ModeCardLayOut {
         buttonPanel.add(startButton);
 
         panel.add(title, BorderLayout.NORTH);
-        panel.add(beatNumPanel, BorderLayout.WEST);
-        panel.add(pvpMode, BorderLayout.CENTER); // 直接添加PVPMode
+        panel.add(beatPanel, BorderLayout.WEST);
+        panel.add(pvpMode, BorderLayout.CENTER);
         panel.add(controls, BorderLayout.EAST);
         panel.add(buttonPanel, BorderLayout.SOUTH);
 
@@ -329,7 +346,7 @@ public class ModeCardLayOut {
 
         JLabel aiLevel = new JLabel("<html><div style='text-align: center;'>第<br>"
                 + ConfigTool.getLevel() +
-                "<br>关</div></html>");
+                "<br>关<br>---</div></html>");
         aiLevel.setFont(new Font("华文行楷", Font.BOLD, 30));
         aiLevel.setForeground(Color.RED);
         aiLevel.setHorizontalAlignment(JLabel.CENTER);

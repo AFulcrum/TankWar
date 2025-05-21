@@ -7,7 +7,7 @@ import javax.swing.*;
 
 public class PlayerTank extends AbstractTank {
     private final boolean[] keysPressed = new boolean[512];
-    private final int maxHealth = 3;
+    public static int health=3;
     private Image[] tankImages = new Image[2];
     private int tankType;
     private double angle = 0; // 当前朝向角度，0为向上，顺时针为正
@@ -16,7 +16,7 @@ public class PlayerTank extends AbstractTank {
     private int currentImageIndex = 0;
 
     public PlayerTank(int x, int y, CollisionDetector collisionDetector) {
-        super(x, y, 64, 64, 3, collisionDetector);
+        super(x, y, 48, 48, 3, collisionDetector);
         this.tankType = ConfigTool.getSelectedTank();
         loadTankImage();
     }
@@ -75,7 +75,7 @@ public class PlayerTank extends AbstractTank {
         if (keysPressed[KeyEvent.VK_UP]) {
             moveSpeed = speed;
         } else if (keysPressed[KeyEvent.VK_DOWN]) {
-            moveSpeed = -speed; // 后退速度为负
+            moveSpeed = -speed;
         }
 
         if (moveSpeed != 0) {
@@ -100,9 +100,9 @@ public class PlayerTank extends AbstractTank {
             return tankImages[0];
         }
 
-        // 动画切换逻辑 - 每200毫秒切换一次图片
+        // 动画切换逻辑 - 每100毫秒切换一次图片
         long currentTime = System.currentTimeMillis();
-        if (currentTime - lastImageSwitchTime > 200) {
+        if (currentTime - lastImageSwitchTime > 100) {
             currentImageIndex = (currentImageIndex + 1) % 2;
             lastImageSwitchTime = currentTime;
         }
@@ -148,12 +148,16 @@ public class PlayerTank extends AbstractTank {
         }
     }
 
-    public int getMaxHealth() {
-        return maxHealth;
+    public static int getHealth(){
+        return health;
     }
 
 
     public double getAngle() {
         return angle;
+    }
+
+    public boolean checkCollision(int newX, int newY) {
+        return !collisionDetector.isColliding(newX, newY, width, height);
     }
 }

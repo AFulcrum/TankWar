@@ -2,6 +2,7 @@ package Mode;
 
 import Config.AITank;
 import Config.PlayerTank;
+import Config.SimpleCollisionDetector;
 import InterFace.CollisionDetector;
 import java.awt.*;
 import java.awt.event.*;
@@ -12,8 +13,10 @@ public class PVPMode extends JPanel {
     private AITank enemy;
     private Timer gameTimer;
     private boolean gameRunning = false;
+    private CollisionDetector detector;
 
     public PVPMode(CollisionDetector collisionDetector) {
+        this.detector = collisionDetector;
         setLayout(new BorderLayout());
         setBackground(Color.WHITE);
         setFocusable(true);
@@ -30,7 +33,18 @@ public class PVPMode extends JPanel {
                 repaint();
             }
         });
+        addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentResized(ComponentEvent e) {
+                updateCollisionBoundary();
+            }
+        });
         repaint(); // 保证初始显示
+    }
+    private void updateCollisionBoundary() {
+        if (detector instanceof SimpleCollisionDetector) {
+            ((SimpleCollisionDetector)detector).setGameAreaSize(getSize());
+        }
     }
 
     private void setupKeyBindings() {
@@ -150,5 +164,9 @@ public class PVPMode extends JPanel {
         gameTimer.stop();
         player = null;
         enemy = null;
+    }
+
+    public Object getDetector() {
+        return detector;
     }
 }
