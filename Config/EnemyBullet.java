@@ -10,7 +10,7 @@ public class EnemyBullet implements Bullet {
     private int y;
     private int width = 10;
     private int height = 10;
-    private int speed = 5; // 比玩家子弹稍慢
+    private int speed = 15; // 比玩家子弹稍慢
     private int damage = 1;
     private boolean active = true;
     private double angle;
@@ -28,13 +28,13 @@ public class EnemyBullet implements Bullet {
             String path = "/Images/Bullet/Bullet5.png";
             java.net.URL url = getClass().getResource(path);
             if (url == null) {
-                System.err.println("敌人子弹图片不存在: " + path);
+                System.err.println("子弹图片不存在: " + path);
                 return;
             }
             ImageIcon icon = new ImageIcon(url);
             bulletImage = icon.getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH);
         } catch (Exception e) {
-            System.err.println("无法加载敌人子弹图像: " + e.getMessage());
+            System.err.println("无法加载子弹图像: " + e.getMessage());
         }
     }
 

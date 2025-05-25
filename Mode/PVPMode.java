@@ -1,11 +1,10 @@
 package Mode;
 
-import Config.EnemyTank;
-import Config.PlayerTank;
-import Config.SimpleCollisionDetector;
+import Config.*;
 import InterFace.CollisionDetector;
 import java.awt.*;
 import java.awt.event.*;
+import java.util.Random;
 import javax.swing.*;
 
 public class PVPMode extends JPanel {
@@ -24,6 +23,7 @@ public class PVPMode extends JPanel {
 
         // 创建玩家坦克和AI坦克
         player = new PlayerTank(100, 100, collisionDetector);
+        enemy = new EnemyTank(300, 300, collisionDetector);
         // 设置键盘监听
         setupKeyBindings();
         // 游戏循环
@@ -98,8 +98,42 @@ public class PVPMode extends JPanel {
     }
 
     private void updateGame() {
-        player.updateMovement(); // 每帧都根据按键状态移动
-        player.updateBullets();
+        player.updateMovement(); // 更新玩家坦克
+        player.updateBullets();// 更新玩家子弹
+        enemy.update();// 更新敌方坦克(包括移动和射击)
+        enemy.updateBullets();// 更新敌方子弹
+    }
+    private void checkBulletCollisions() {
+        // 检查玩家子弹是否击中敌方坦克
+        for (PlayerBullet bullet : player.getBullets()) {
+            if (bullet.isActive() && enemy.isAlive() &&
+                    bullet.getCollisionBounds().intersects(enemy.getCollisionBounds())) {
+                bullet.deactivate();
+                enemy.takeDamage(bullet.getDamage());
+
+                if (!enemy.isAlive()) {
+                    // 敌方坦克被摧毁，增加得分
+                    ConfigTool.setBeatNum(String.valueOf(ConfigTool.getBeatNum() + 1));
+                    ConfigTool.saveConfig();
+
+                    // 1秒后在随机位置重生
+                    Timer respawnTimer = new Timer(1000, e -> {
+                        respawnEnemy();
+                        ((Timer)e.getSource()).stop();
+                    });
+                    respawnTimer.setRepeats(false);
+                    respawnTimer.start();
+                }
+            }
+        }
+    }
+
+    private void respawnEnemy() {
+        Random rand = new Random();
+        int newX = rand.nextInt(getWidth() - enemy.getWidth());
+        int newY = rand.nextInt(getHeight() - enemy.getHeight());
+
+        enemy = new EnemyTank(newX, newY, detector);
     }
 
     @Override
@@ -120,11 +154,23 @@ public class PVPMode extends JPanel {
             g2d.rotate(angle);
             g2d.drawImage(player.getCurrentImage(), -pw / 2, -ph / 2, pw, ph, null);
             g2d.dispose();
-        } else {
-            g.setColor(Color.RED);
-            g.fillRect(player.getX(), player.getY(), player.getWidth(), player.getHeight());
         }
+        // 绘制敌方坦克
+        if (enemy.isAlive() && enemy.getTankImage() != null) {
+            Graphics2D g2d = (Graphics2D) g.create();
+            int ex = enemy.getX();
+            int ey = enemy.getY();
+            int ew = enemy.getWidth();
+            int eh = enemy.getHeight();
+            double angle = enemy.getAngle();
+            g2d.translate(ex + ew / 2, ey + eh / 2);
+            g2d.rotate(angle);
+            g2d.drawImage(enemy.getTankImage(), -ew / 2, -eh / 2, ew, eh, null);
+            g2d.dispose();
+        }
+
         player.drawBullets(g);
+        enemy.drawBullets(g);
     }
 
     private void drawTank(Graphics g, PlayerTank tank, Color color) {

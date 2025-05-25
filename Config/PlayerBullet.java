@@ -10,7 +10,7 @@ public class PlayerBullet implements Bullet {
     private int y;
     private int width = 10;
     private int height = 10;
-    private int speed = 8;
+    private int speed = 15;
     private int damage = 1;
     private boolean active = true;
     private double angle; // 子弹飞行角度

@@ -22,7 +22,7 @@ public class EnemyTank extends AbstractTank {
     private int rotateDuration = 0; // 旋转持续帧数
     private List<EnemyBullet> bullets = new ArrayList<EnemyBullet>();
     private long lastFireTime = 0;
-    private static final int FIRE_CHANCE = 100; // 每帧有1/100的几率射击
+    private static final int FIRE_CHANCE = 66; // 每帧有1/66的几率射击
 
     public EnemyTank(int x, int y, CollisionDetector collisionDetector) {
         super(x, y, 66, 66, 1, collisionDetector); // 敌方坦克1滴血
