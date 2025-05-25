@@ -1,6 +1,7 @@
 package Mode;
 
 import Config.AITank;
+import Config.EnemyTank;
 import Config.PlayerTank;
 import Config.SimpleCollisionDetector;
 import InterFace.CollisionDetector;
@@ -10,7 +11,7 @@ import javax.swing.*;
 
 public class PVPMode extends JPanel {
     private PlayerTank player;
-    private AITank enemy;
+    private EnemyTank enemy;
     private Timer gameTimer;
     private boolean gameRunning = false;
     private CollisionDetector detector;
@@ -99,6 +100,7 @@ public class PVPMode extends JPanel {
 
     private void updateGame() {
         player.updateMovement(); // 每帧都根据按键状态移动
+        player.updateBullets();
         // ...其他逻辑...
     }
 
@@ -124,7 +126,7 @@ public class PVPMode extends JPanel {
             g.setColor(Color.RED);
             g.fillRect(player.getX(), player.getY(), player.getWidth(), player.getHeight());
         }
-        // ...其他绘制...
+        player.drawBullets(g);
     }
 
     private void drawTank(Graphics g, PlayerTank tank, Color color) {

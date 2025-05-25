@@ -3,20 +3,29 @@ package Config;
 import InterFace.CollisionDetector;
 import java.awt.*;
 import java.awt.event.KeyEvent;
+import java.util.ArrayList;
+import java.util.List;
 import javax.swing.*;
+
+import static Structure.ModeCardLayOut.PVPModeHeight;
+import static Structure.ModeCardLayOut.PVPModeWidth;
 
 public class PlayerTank extends AbstractTank {
     private final boolean[] keysPressed = new boolean[512];
-    public static int health=3;
+    private static final int Health = 3;
     private Image[] tankImages = new Image[2];
     private int tankType;
     private double angle = 0; // 当前朝向角度，0为向上，顺时针为正
     private boolean isMoving = false;
     private long lastImageSwitchTime = 0;
     private int currentImageIndex = 0;
+    private List<PlayerBullet> bullets = new ArrayList<>();
+    private long lastFireTime = 0;
+    private boolean spaceKeyPressed = false; //记录空格键是否按下
+
 
     public PlayerTank(int x, int y, CollisionDetector collisionDetector) {
-        super(x, y, 48, 48, 3, collisionDetector);
+        super(x, y, 42, 42, 3, collisionDetector);
         this.tankType = ConfigTool.getSelectedTank();
         loadTankImage();
     }
@@ -45,11 +54,18 @@ public class PlayerTank extends AbstractTank {
     // 处理键盘输入
     public void handleKeyPress(int keyCode) {
         keysPressed[keyCode] = true;
+        if (keyCode == KeyEvent.VK_SPACE) {
+            spaceKeyPressed = true;
+            fire(); // 只在按下空格时尝试发射
+        }
         updateMovement();
     }
 
     public void handleKeyRelease(int keyCode) {
         keysPressed[keyCode] = false;
+        if (keyCode == KeyEvent.VK_SPACE) {
+            spaceKeyPressed = false;
+        }
         updateMovement();
     }
 
@@ -75,7 +91,7 @@ public class PlayerTank extends AbstractTank {
         if (keysPressed[KeyEvent.VK_UP]) {
             moveSpeed = speed;
         } else if (keysPressed[KeyEvent.VK_DOWN]) {
-            moveSpeed = -speed;
+            moveSpeed = -speed; // 后退速度为负
         }
 
         if (moveSpeed != 0) {
@@ -87,9 +103,6 @@ public class PlayerTank extends AbstractTank {
             }
         }
 
-        if (keysPressed[KeyEvent.VK_SPACE]) {
-            fire();
-        }
         if (keysPressed[KeyEvent.VK_X]) {
             useSkill();
         }
@@ -100,9 +113,9 @@ public class PlayerTank extends AbstractTank {
             return tankImages[0];
         }
 
-        // 动画切换逻辑 - 每100毫秒切换一次图片
+        // 动画切换逻辑 - 每200毫秒切换一次图片
         long currentTime = System.currentTimeMillis();
-        if (currentTime - lastImageSwitchTime > 100) {
+        if (currentTime - lastImageSwitchTime > 200) {
             currentImageIndex = (currentImageIndex + 1) % 2;
             lastImageSwitchTime = currentTime;
         }
@@ -112,23 +125,45 @@ public class PlayerTank extends AbstractTank {
 
     @Override
     public void fire() {
-        System.out.println("发射子弹");
-        // ...子弹逻辑...
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - lastFireTime >= FIRE_INTERVAL && spaceKeyPressed) {
+            // 计算子弹发射位置(坦克前方)
+            int bulletX = (int) (x + width/2 + (width/2 + 5) * Math.sin(angle));
+            int bulletY = (int) (y + height/2 - (height/2 + 5) * Math.cos(angle));
+
+            PlayerBullet bullet = new PlayerBullet(bulletX, bulletY, angle);
+            bullets.add(bullet);
+            lastFireTime = currentTime;
+        }
     }
+    public void updateBullets() {
+        for (int i = 0; i < bullets.size(); i++) {
+            PlayerBullet bullet = bullets.get(i);
+            bullet.updatePosition();
+
+            // 移除超出屏幕或无效的子弹
+            if (!bullet.isActive() || isOutOfBounds(bullet)) {
+                bullets.remove(i);
+                i--;
+            }
+        }
+    }
+    private boolean isOutOfBounds(PlayerBullet bullet) {
+        Rectangle bounds = bullet.getCollisionBounds();
+        return bounds.x < 0 || bounds.y < 0 ||
+                bounds.x > PVPModeWidth ||
+                bounds.y > PVPModeHeight;
+    }
+    public void drawBullets(Graphics g) {
+        for (PlayerBullet bullet : bullets) {
+            bullet.draw(g);
+        }
+    }
+
 
     @Override
     public void useSkill() {
-        int originalSpeed = speed;
-        speed *= 2;
-        new java.util.Timer().schedule(
-                new java.util.TimerTask() {
-                    @Override
-                    public void run() {
-                        speed = originalSpeed;
-                    }
-                },
-                3000
-        );
+        System.out.println("使用技能");
     }
 
     @Override
@@ -148,16 +183,12 @@ public class PlayerTank extends AbstractTank {
         }
     }
 
-    public static int getHealth(){
-        return health;
+    public static int getHealth() {
+        return Health;
     }
 
 
     public double getAngle() {
         return angle;
-    }
-
-    public boolean checkCollision(int newX, int newY) {
-        return !collisionDetector.isColliding(newX, newY, width, height);
     }
 }

@@ -3,10 +3,11 @@ package Structure;
 import Config.ConfigTool;
 import Config.PlayerTank;
 import Config.SimpleCollisionDetector;
-import InterFace.CollisionDetector;
 import Mode.PVPMode;
 
 import java.awt.*;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.IOException;
@@ -16,6 +17,8 @@ import java.util.List;
 import javax.swing.*;
 
 public class ModeCardLayOut {
+    public static int PVPModeWidth;
+    public static int PVPModeHeight;
     public ModeCardLayOut(JFrame frame, HomeIcon homeIcon) {
         initModeCardLayOut(frame,homeIcon);
     }
@@ -282,6 +285,19 @@ public class ModeCardLayOut {
             }
         });
         pvpMode.setBorder(BorderFactory.createTitledBorder("游戏区域"));
+        // 添加组件监听器来获取实际尺寸
+        pvpMode.addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentResized(ComponentEvent e) {
+                PVPModeWidth = pvpMode.getWidth();
+                PVPModeHeight = pvpMode.getHeight();
+                // 更新碰撞检测区域
+                if (pvpMode.getDetector() instanceof SimpleCollisionDetector) {
+                    ((SimpleCollisionDetector)pvpMode.getDetector())
+                            .setGameAreaSize(new Dimension(PVPModeWidth, PVPModeHeight));
+                }
+            }
+        });
 
         // 控制说明
         JTextArea controls = new JTextArea(
