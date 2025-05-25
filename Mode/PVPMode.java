@@ -1,6 +1,5 @@
 package Mode;
 
-import Config.AITank;
 import Config.EnemyTank;
 import Config.PlayerTank;
 import Config.SimpleCollisionDetector;
@@ -101,7 +100,6 @@ public class PVPMode extends JPanel {
     private void updateGame() {
         player.updateMovement(); // 每帧都根据按键状态移动
         player.updateBullets();
-        // ...其他逻辑...
     }
 
     @Override

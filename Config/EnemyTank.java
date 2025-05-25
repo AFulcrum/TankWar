@@ -156,4 +156,12 @@ public class EnemyTank extends AbstractTank {
             return 0; // 上
         }
     }
+
+    public Rectangle getCollisionBounds() {
+        return null;
+    }
+
+    public EnemyBullet[] getBullets() {
+        return null;
+    }
 }

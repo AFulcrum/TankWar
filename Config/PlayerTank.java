@@ -191,4 +191,12 @@ public class PlayerTank extends AbstractTank {
     public double getAngle() {
         return angle;
     }
+
+    public PlayerBullet[] getBullets() {
+        return null;
+    }
+
+    public Rectangle getCollisionBounds() {
+        return null;
+    }
 }

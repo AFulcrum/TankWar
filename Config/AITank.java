@@ -31,9 +31,6 @@ public class AITank extends AbstractTank {
     public void fire() {
         int bulletX = x + width/2;
         int bulletY = y + height/2;
-        // 创建子弹并添加到游戏世界
-        // Bullet bullet = new Bullet(bulletX, bulletY, direction);
-        // GameWorld.addBullet(bullet);
     }
 
     @Override

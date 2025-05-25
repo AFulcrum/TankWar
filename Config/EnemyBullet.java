@@ -1,4 +1,3 @@
-// EnemyBullet.java
 package Config;
 
 import InterFace.Bullet;
@@ -26,7 +25,7 @@ public class EnemyBullet implements Bullet {
 
     private void loadBulletImage() {
         try {
-            String path = "/Images/Bullet/enemyBullet.png";
+            String path = "/Images/Bullet/Bullet5.png";
             java.net.URL url = getClass().getResource(path);
             if (url == null) {
                 System.err.println("敌人子弹图片不存在: " + path);
