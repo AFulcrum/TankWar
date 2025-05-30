@@ -11,8 +11,7 @@ public abstract class AbstractTank implements Tank {
     protected boolean alive;     // 是否存活
     protected int direction;     // 当前方向(0:上, 1:右, 2:下, 3:左)
     protected int speed = 2;     // 移动速度
-    protected long lastFireTime = 0; // 记录上次开火时间
-    protected static final long FIRE_INTERVAL = 500; // 开火间隔 2 秒
+    protected static final long FIRE_INTERVAL = 500; // 开火间隔
 
     public AbstractTank(int x, int y,
                         int width, int height,

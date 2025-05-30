@@ -254,7 +254,7 @@ public class ModeCardLayOut {
         title.setFont(new Font("华文行楷", Font.BOLD, 30));
         title.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
 
-        //击败数
+        //击败数和生命值面板
         JPanel beatPanel = new JPanel(new GridLayout(2, 1, 0, 10));// 2行1列，垂直间距10
         beatPanel.setPreferredSize(new Dimension(100, Integer.MAX_VALUE));
         beatPanel.setBackground(new Color(199, 248, 235));
