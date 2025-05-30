@@ -13,8 +13,6 @@ import static Structure.ModeCardLayOut.PVPModeWidth;
 public class PlayerTank extends AbstractTank {
     private final boolean[] keysPressed = new boolean[512];
     private static final int Health = 3;
-    private long invincibleTime = 0;
-    private static final long INVINCIBLE_DURATION = 1500; // 受伤后短暂无敌时间(毫秒)
     private Image[] tankImages = new Image[2];
     private int tankType;
     private double angle = 0; // 当前朝向角度，0为向上，顺时针为正
@@ -30,7 +28,6 @@ public class PlayerTank extends AbstractTank {
         super(x, y, 42, 42, 3, collisionDetector);
         this.tankType = ConfigTool.getSelectedTank();
         loadTankImage();
-        this.health = 3; // 初始3条命
     }
 
     private void loadTankImage() {
