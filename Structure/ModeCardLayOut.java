@@ -248,6 +248,8 @@ public class ModeCardLayOut {
     private static JPanel createPVPPanel(CardLayout cardLayout, JPanel mainPanel) {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBackground(new Color(217, 248, 240));
+        // 设置最小尺寸，确保有足够的空间生成墙体
+        panel.setPreferredSize(new Dimension(800, 600));
 
         // 标题
         JLabel title = new JLabel("坦克战争", JLabel.CENTER);
@@ -274,7 +276,7 @@ public class ModeCardLayOut {
         beatPanel.add(beatNumLabel);
 
         // 游戏区域
-        PVPMode pvpMode = new PVPMode(new SimpleCollisionDetector(new Dimension(0, 0)));
+        PVPMode pvpMode = new PVPMode(new SimpleCollisionDetector(new Dimension(800, 600)));
         //显示时请求焦点
         SwingUtilities.invokeLater(() -> {
             pvpMode.requestFocusInWindow();

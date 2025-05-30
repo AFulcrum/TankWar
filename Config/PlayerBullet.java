@@ -62,6 +62,7 @@ public class PlayerBullet implements Bullet {
 
     @Override
     public Rectangle getCollisionBounds() {
+        if (!isActive()) return null;
         return new Rectangle(x, y, width, height);
     }
 

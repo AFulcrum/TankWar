@@ -4,6 +4,7 @@ import Config.*;
 import InterFace.CollisionDetector;
 import java.awt.*;
 import java.awt.event.*;
+import java.util.ArrayList;
 import java.util.Random;
 import javax.swing.*;
 
@@ -13,6 +14,8 @@ public class PVPMode extends JPanel {
     private Timer gameTimer;
     private boolean gameRunning = false;
     private CollisionDetector detector;
+    private java.util.List<Wall> walls = new ArrayList<>(); // 添加墙体列表
+
 
     public PVPMode(CollisionDetector collisionDetector) {
         this.detector = collisionDetector;
@@ -24,6 +27,12 @@ public class PVPMode extends JPanel {
         // 创建玩家坦克和AI坦克
         player = new PlayerTank(100, 100, collisionDetector);
         enemy = new EnemyTank(300, 300, collisionDetector);
+        // 初始化墙体
+        initWalls();
+        // 更新碰撞检测器
+        if (detector instanceof SimpleCollisionDetector) {
+            ((SimpleCollisionDetector) detector).setWalls(walls);
+        }
         // 设置键盘监听
         setupKeyBindings();
         // 游戏循环
@@ -37,10 +46,27 @@ public class PVPMode extends JPanel {
             @Override
             public void componentResized(ComponentEvent e) {
                 updateCollisionBoundary();
+                // 重新初始化墙体
+                walls.clear();
+                initWalls();
+                if (detector instanceof SimpleCollisionDetector) {
+                    ((SimpleCollisionDetector) detector).setWalls(walls);
+                }
             }
         });
         repaint(); // 保证初始显示
     }
+    // 初始化墙体
+    private void initWalls() {
+        // 只有当游戏区域大小足够时才初始化墙体
+        if (getWidth() > 0 && getHeight() > 0) {
+            // 添加边界墙体
+            walls.addAll(Wall.createBoundaryWalls(getWidth(), getHeight()));
+            // 添加随机墙体
+            walls.addAll(Wall.createRandomWalls(getWidth(), getHeight(), 10));
+        }
+    }
+
     private void updateCollisionBoundary() {
         if (detector instanceof SimpleCollisionDetector) {
             ((SimpleCollisionDetector)detector).setGameAreaSize(getSize());
@@ -98,31 +124,46 @@ public class PVPMode extends JPanel {
     }
 
     private void updateGame() {
+        if (!gameRunning) return;
         player.updateMovement(); // 更新玩家坦克
         player.updateBullets();// 更新玩家子弹
         enemy.update();// 更新敌方坦克(包括移动和射击)
         enemy.updateBullets();// 更新敌方子弹
+        // 检查子弹碰撞
+        checkBulletCollisions();
+
+        repaint();
+
     }
     private void checkBulletCollisions() {
+        if (player == null || enemy == null || player.getBullets() == null) {
+            return;
+        }
         // 检查玩家子弹是否击中敌方坦克
         for (PlayerBullet bullet : player.getBullets()) {
-            if (bullet.isActive() && enemy.isAlive() &&
-                    bullet.getCollisionBounds().intersects(enemy.getCollisionBounds())) {
-                bullet.deactivate();
-                enemy.takeDamage(bullet.getDamage());
+            if (bullet != null && bullet.isActive() && enemy.isAlive()) {
+                Rectangle bulletBounds = bullet.getCollisionBounds();
+                Rectangle enemyBounds = enemy.getCollisionBounds();
 
-                if (!enemy.isAlive()) {
-                    // 敌方坦克被摧毁，增加得分
-                    ConfigTool.setBeatNum(String.valueOf(ConfigTool.getBeatNum() + 1));
-                    ConfigTool.saveConfig();
+                if (bulletBounds != null && enemyBounds != null &&
+                        bulletBounds.intersects(enemyBounds)) {
 
-                    // 1秒后在随机位置重生
-                    Timer respawnTimer = new Timer(1000, e -> {
-                        respawnEnemy();
-                        ((Timer)e.getSource()).stop();
-                    });
-                    respawnTimer.setRepeats(false);
-                    respawnTimer.start();
+                    bullet.deactivate();
+                    enemy.takeDamage(bullet.getDamage());
+
+                    if (!enemy.isAlive()) {
+                        // 敌方坦克被摧毁，增加得分
+                        ConfigTool.setBeatNum(String.valueOf(ConfigTool.getBeatNum() + 1));
+                        ConfigTool.saveConfig();
+
+                        // 1秒后在随机位置重生
+                        Timer respawnTimer = new Timer(1000, e -> {
+                            respawnEnemy();
+                            ((Timer)e.getSource()).stop();
+                        });
+                        respawnTimer.setRepeats(false);
+                        respawnTimer.start();
+                    }
                 }
             }
         }
@@ -139,8 +180,14 @@ public class PVPMode extends JPanel {
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-        g.setColor(Color.WHITE);
+//        g.setColor(Color.WHITE);
+        // 清空背景
+        g.setColor(getBackground());
         g.fillRect(0, 0, getWidth(), getHeight());
+        // 绘制墙体
+        for (Wall wall : walls) {
+            wall.draw(g);
+        }
         // 绘制玩家坦克
         if (player.getCurrentImage() != null) {
             Graphics2D g2d = (Graphics2D) g.create();
@@ -168,7 +215,7 @@ public class PVPMode extends JPanel {
             g2d.drawImage(enemy.getTankImage(), -ew / 2, -eh / 2, ew, eh, null);
             g2d.dispose();
         }
-
+        // 绘制子弹
         player.drawBullets(g);
         enemy.drawBullets(g);
     }
@@ -196,6 +243,7 @@ public class PVPMode extends JPanel {
         }
     }
 
+
     public void startGame() {
         gameRunning = true;
         gameTimer.start();
@@ -212,7 +260,11 @@ public class PVPMode extends JPanel {
         enemy = null;
     }
 
-    public Object getDetector() {
+//    public Object getDetector() {
+//        return detector;
+//    }
+    public CollisionDetector getDetector() {
         return detector;
     }
+
 }

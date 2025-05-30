@@ -10,7 +10,7 @@ public class EnemyBullet implements Bullet {
     private int y;
     private int width = 10;
     private int height = 10;
-    private int speed = 15; // 比玩家子弹稍慢
+    private int speed = 1; // 比玩家子弹稍慢
     private int damage = 1;
     private boolean active = true;
     private double angle;

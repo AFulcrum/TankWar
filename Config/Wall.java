@@ -8,8 +8,8 @@ import java.util.Random;
 public class Wall {
     private int x, y;              // 墙体位置
     private int width, height;     // 墙体尺寸
-    private static final int DEFAULT_SIZE = 40; // 默认墙体大小
-    private Color wallColor = new Color(139, 69, 19); // 棕色墙体
+    private static int DEFAULT_SIZE = 10; // 默认墙体大小
+    private Color wallColor = new Color(0, 0, 0); // 黑色墙体
 
     public Wall(int x, int y, int width, int height) {
         this.x = x;
@@ -94,6 +94,10 @@ public class Wall {
     // 静态方法：生成随机内部墙体
     public static List<Wall> createRandomWalls(int gameWidth, int gameHeight, int count) {
         List<Wall> walls = new ArrayList<>();
+        // 如果游戏区域太小，直接返回空列表
+        if (gameWidth <= DEFAULT_SIZE * 4 || gameHeight <= DEFAULT_SIZE * 4) {
+            return walls;
+        }
         Random random = new Random();
         int wallSize = DEFAULT_SIZE;
 
@@ -101,34 +105,48 @@ public class Wall {
         int margin = wallSize * 2;
         int centerMargin = wallSize * 3; // 中心区域margin更大，避免玩家和敌人初始位置被墙体阻塞
 
+        // 确保随机范围是正数
+        int availableWidth = gameWidth - margin * 2;
+        int availableHeight = gameHeight - margin * 2;
+
+        if (availableWidth <= 0 || availableHeight <= 0) {
+            return walls;
+        }
+
         for (int i = 0; i < count; i++) {
-            int x = margin + random.nextInt(gameWidth - margin * 2);
-            int y = margin + random.nextInt(gameHeight - margin * 2);
+            try {
+                int x = margin + random.nextInt(availableWidth);
+                int y = margin + random.nextInt(availableHeight);
 
-            // 确保x和y是wallSize的倍数，使墙体对齐
-            x = (x / wallSize) * wallSize;
-            y = (y / wallSize) * wallSize;
+                // 确保x和y是wallSize的倍数
+                x = (x / wallSize) * wallSize;
+                y = (y / wallSize) * wallSize;
 
-            // 避免在中心区域生成墙体
-            if (Math.abs(x - gameWidth/2) < centerMargin &&
-                    Math.abs(y - gameHeight/2) < centerMargin) {
+                // 避免在中心区域生成墙体
+                if (Math.abs(x - gameWidth/2) < centerMargin &&
+                        Math.abs(y - gameHeight/2) < centerMargin) {
+                    i--;
+                    continue;
+                }
+
+                // 检查是否与现有墙体重叠或太近
+                boolean tooClose = false;
+                for (Wall wall : walls) {
+                    if (Math.abs(wall.x - x) < wallSize && Math.abs(wall.y - y) < wallSize) {
+                        tooClose = true;
+                        break;
+                    }
+                }
+
+                if (!tooClose) {
+                    walls.add(new Wall(x, y));
+                } else {
+                    i--;
+                }
+            } catch (IllegalArgumentException e) {
+                // 如果发生异常，跳过这次生成
                 i--;
                 continue;
-            }
-
-            // 检查是否与现有墙体重叠或太近
-            boolean tooClose = false;
-            for (Wall wall : walls) {
-                if (Math.abs(wall.x - x) < wallSize && Math.abs(wall.y - y) < wallSize) {
-                    tooClose = true;
-                    break;
-                }
-            }
-
-            if (!tooClose) {
-                walls.add(new Wall(x, y));
-            } else {
-                i--; // 重试
             }
         }
 

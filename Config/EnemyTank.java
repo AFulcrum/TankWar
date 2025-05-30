@@ -20,13 +20,16 @@ public class EnemyTank extends AbstractTank {
     private double rotateStep = Math.toRadians(3); // 旋转步长，每次转动3度
     private int moveDuration = 0; // 移动持续帧数
     private int rotateDuration = 0; // 旋转持续帧数
-    private List<EnemyBullet> bullets = new ArrayList<EnemyBullet>();
+//    private List<EnemyBullet> bullets = new ArrayList<EnemyBullet>();
+    private List<EnemyBullet> bullets;
     private long lastFireTime = 0;
     private static final int FIRE_CHANCE = 66; // 每帧有1/66的几率射击
 
     public EnemyTank(int x, int y, CollisionDetector collisionDetector) {
         super(x, y, 66, 66, 1, collisionDetector); // 敌方坦克1滴血
         loadTankImage();
+        // 初始化子弹列表
+        this.bullets = new ArrayList<>();
     }
 
     private void loadTankImage() {
@@ -158,10 +161,14 @@ public class EnemyTank extends AbstractTank {
     }
 
     public Rectangle getCollisionBounds() {
-        return null;
+        if (!isAlive()) return null;
+        return new Rectangle(x, y, width, height);
     }
 
-    public EnemyBullet[] getBullets() {
-        return null;
+    public List<EnemyBullet> getBullets() {
+        if (bullets == null) {
+            bullets = new ArrayList<>();
+        }
+        return bullets;
     }
 }

@@ -19,7 +19,8 @@ public class PlayerTank extends AbstractTank {
     private boolean isMoving = false;
     private long lastImageSwitchTime = 0;
     private int currentImageIndex = 0;
-    private List<PlayerBullet> bullets = new ArrayList<>();
+//    private List<PlayerBullet> bullets = new ArrayList<>();
+    private List<PlayerBullet> bullets; // 子弹列表
     private long lastFireTime = 0;
     private boolean spaceKeyPressed = false; //记录空格键是否按下
 
@@ -27,6 +28,8 @@ public class PlayerTank extends AbstractTank {
     public PlayerTank(int x, int y, CollisionDetector collisionDetector) {
         super(x, y, 42, 42, 3, collisionDetector);
         this.tankType = ConfigTool.getSelectedTank();
+        // 初始化子弹列表
+        this.bullets = new ArrayList<>();
         loadTankImage();
     }
 
@@ -123,29 +126,44 @@ public class PlayerTank extends AbstractTank {
         return tankImages[currentImageIndex];
     }
 
+
     @Override
     public void fire() {
-        long currentTime = System.currentTimeMillis();
-        if (currentTime - lastFireTime >= FIRE_INTERVAL && spaceKeyPressed) {
-            // 计算子弹发射位置(坦克前方)
-            int bulletX = (int) (x + width/2 + (width/2 + 5) * Math.sin(angle));
-            int bulletY = (int) (y + height/2 - (height/2 + 5) * Math.cos(angle));
-
-            PlayerBullet bullet = new PlayerBullet(bulletX, bulletY, angle);
-            bullets.add(bullet);
-            lastFireTime = currentTime;
-        }
+//        long currentTime = System.currentTimeMillis();
+//        if (currentTime - lastFireTime >= FIRE_INTERVAL && spaceKeyPressed) {
+//            // 计算子弹发射位置(坦克前方)
+//            int bulletX = (int) (x + width/2 + (width/2 + 5) * Math.sin(angle));
+//            int bulletY = (int) (y + height/2 - (height/2 + 5) * Math.cos(angle));
+//
+//            PlayerBullet bullet = new PlayerBullet(bulletX, bulletY, angle);
+//            bullets.add(bullet);
+//            lastFireTime = currentTime;
+//        }
+        // 创建新子弹
+        PlayerBullet bullet = new PlayerBullet(
+                getX() + getWidth()/2,
+                getY() + getHeight()/2,
+                getAngle()
+        );
+        bullets.add(bullet);
     }
     public void updateBullets() {
-        for (int i = 0; i < bullets.size(); i++) {
-            PlayerBullet bullet = bullets.get(i);
-            bullet.updatePosition();
+//        for (int i = 0; i < bullets.size(); i++) {
+//            PlayerBullet bullet = bullets.get(i);
+//            bullet.updatePosition();
+//
+//            // 移除超出屏幕或无效的子弹
+//            if (!bullet.isActive() || isOutOfBounds(bullet)) {
+//                bullets.remove(i);
+//                i--;
+//            }
+//        }
+        // 移除失效的子弹
+        bullets.removeIf(bullet -> !bullet.isActive());
 
-            // 移除超出屏幕或无效的子弹
-            if (!bullet.isActive() || isOutOfBounds(bullet)) {
-                bullets.remove(i);
-                i--;
-            }
+        // 更新剩余子弹的位置
+        for (PlayerBullet bullet : bullets) {
+            bullet.updatePosition();
         }
     }
     private boolean isOutOfBounds(PlayerBullet bullet) {
@@ -192,8 +210,12 @@ public class PlayerTank extends AbstractTank {
         return angle;
     }
 
-    public PlayerBullet[] getBullets() {
-        return null;
+    // 获取子弹列表
+    public List<PlayerBullet> getBullets() {
+        if (bullets == null) {
+            bullets = new ArrayList<>();
+        }
+        return bullets;
     }
 
     public Rectangle getCollisionBounds() {
