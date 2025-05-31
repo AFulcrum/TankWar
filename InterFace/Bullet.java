@@ -12,4 +12,10 @@ public interface Bullet {
     boolean isActive();
     //标记子弹为无效状态
     void deactivate();
+    // 处理反弹
+    void bounce();
+    // 获取当前反弹次数
+    int getBounceCount();
+    // 检查是否可以继续反弹
+    boolean canBounce();
 }

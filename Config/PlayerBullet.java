@@ -15,6 +15,8 @@ public class PlayerBullet implements Bullet {
     private boolean active = true;
     private double angle; // 子弹飞行角度
     private Image bulletImage;
+    private int bounceCount = 0;
+    private static final int MAX_BOUNCE = 100; // 最大反弹次数
 
 
     public PlayerBullet(int x, int y, double angle) {
@@ -75,6 +77,47 @@ public class PlayerBullet implements Bullet {
     public void deactivate() {
         active = false;
     }
+    @Override
+    public void bounce() {
+        if (!canBounce()) {
+            deactivate();
+            return;
+        }
+
+        // 确定是哪面墙进行反弹
+        // 简单实现：我们翻转角度，模拟反弹效果
+        // 检测是否是水平墙面还是垂直墙面的反弹
+
+        // 获取当前移动方向
+        double dx = Math.sin(angle);
+        double dy = -Math.cos(angle);
+
+        // 判断反弹方向（简化版）
+        if (Math.abs(dx) > Math.abs(dy)) {
+            // 水平方向反弹，水平速度取反
+            angle = Math.PI - angle;
+        } else {
+            // 垂直方向反弹，垂直速度取反
+            angle = -angle;
+        }
+
+        // 修正角度，保持在0-2π范围内
+        angle = (angle + 2 * Math.PI) % (2 * Math.PI);
+
+        // 增加反弹计数
+        bounceCount++;
+    }
+
+    @Override
+    public int getBounceCount() {
+        return bounceCount;
+    }
+
+    @Override
+    public boolean canBounce() {
+        return bounceCount < MAX_BOUNCE;
+    }
+
     public void draw(Graphics g) {
         if (!active || bulletImage == null) return;
         g.drawImage(bulletImage, x, y, null);

@@ -7,13 +7,10 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.swing.*;
 
-import static Structure.ModeCardLayOut.PVPModeHeight;
-import static Structure.ModeCardLayOut.PVPModeWidth;
-
 public class PlayerTank extends AbstractTank {
     private final boolean[] keysPressed = new boolean[512];
     private static int health = 3; // 初始生命值
-    private Image[] tankImages = new Image[2];
+    private final Image[] tankImages = new Image[2];
     private int tankType;
     private double angle = 0; // 当前朝向角度，0为向上，顺时针为正
     private boolean isMoving = false;
@@ -21,7 +18,6 @@ public class PlayerTank extends AbstractTank {
     private int currentImageIndex = 0;
 //    private List<PlayerBullet> bullets = new ArrayList<>();
     private List<PlayerBullet> bullets; // 子弹列表
-    private long lastFireTime = 0;
     private boolean spaceKeyPressed = false; //记录空格键是否按下
 
 
@@ -129,16 +125,6 @@ public class PlayerTank extends AbstractTank {
 
     @Override
     public void fire() {
-//        long currentTime = System.currentTimeMillis();
-//        if (currentTime - lastFireTime >= FIRE_INTERVAL && spaceKeyPressed) {
-//            // 计算子弹发射位置(坦克前方)
-//            int bulletX = (int) (x + width/2 + (width/2 + 5) * Math.sin(angle));
-//            int bulletY = (int) (y + height/2 - (height/2 + 5) * Math.cos(angle));
-//
-//            PlayerBullet bullet = new PlayerBullet(bulletX, bulletY, angle);
-//            bullets.add(bullet);
-//            lastFireTime = currentTime;
-//        }
         // 创建新子弹
         PlayerBullet bullet = new PlayerBullet(
                 getX() + getWidth()/2,
@@ -148,16 +134,6 @@ public class PlayerTank extends AbstractTank {
         bullets.add(bullet);
     }
     public void updateBullets() {
-//        for (int i = 0; i < bullets.size(); i++) {
-//            PlayerBullet bullet = bullets.get(i);
-//            bullet.updatePosition();
-//
-//            // 移除超出屏幕或无效的子弹
-//            if (!bullet.isActive() || isOutOfBounds(bullet)) {
-//                bullets.remove(i);
-//                i--;
-//            }
-//        }
         // 移除失效的子弹
         bullets.removeIf(bullet -> !bullet.isActive());
 
@@ -165,12 +141,6 @@ public class PlayerTank extends AbstractTank {
         for (PlayerBullet bullet : bullets) {
             bullet.updatePosition();
         }
-    }
-    private boolean isOutOfBounds(PlayerBullet bullet) {
-        Rectangle bounds = bullet.getCollisionBounds();
-        return bounds.x < 0 || bounds.y < 0 ||
-                bounds.x > PVPModeWidth ||
-                bounds.y > PVPModeHeight;
     }
     public void drawBullets(Graphics g) {
         for (PlayerBullet bullet : bullets) {
@@ -232,5 +202,10 @@ public class PlayerTank extends AbstractTank {
     @Override
     public Rectangle getCollisionBounds() {
         return new Rectangle(x, y, width, height);
+    }
+
+    public void setPosition(int playerX, int playerY) {
+        this.x = playerX;
+        this.y = playerY;
     }
 }

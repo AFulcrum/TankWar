@@ -1,6 +1,7 @@
 package Config;
 
 import InterFace.CollisionDetector;
+import Structure.Wall;
 
 import java.awt.*;
 import java.util.List;

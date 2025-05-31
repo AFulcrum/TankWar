@@ -290,7 +290,7 @@ public class ModeCardLayOut {
                         .setGameAreaSize(pvpMode.getSize());
             }
         });
-        pvpMode.setBorder(BorderFactory.createTitledBorder("游戏区域"));
+        pvpMode.setBorder(BorderFactory.createTitledBorder(" "));
         // 添加组件监听器来获取实际尺寸
         pvpMode.addComponentListener(new ComponentAdapter() {
             @Override

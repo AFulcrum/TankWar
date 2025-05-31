@@ -16,6 +16,8 @@ public class EnemyBullet implements Bullet {
     private double angle;
     private Image bulletImage;
     private double dx, dy; // 方向向量
+    private int bounceCount = 0;
+    private static final int MAX_BOUNCE = 100; // 最大反弹次数
 
     public EnemyBullet(int x, int y, double angle) {
         this.x = x - width/2;
@@ -73,6 +75,41 @@ public class EnemyBullet implements Bullet {
     @Override
     public void deactivate() {
         active = false;
+    }
+
+    @Override
+    public void bounce() {
+        if (!canBounce()) {
+            deactivate();
+            return;
+        }
+
+        // 判断反弹方向（简化版）
+        if (Math.abs(dx) > Math.abs(dy)) {
+            // 水平方向反弹
+            dx = -dx;
+            angle = Math.PI - angle;
+        } else {
+            // 垂直方向反弹
+            dy = -dy;
+            angle = -angle;
+        }
+
+        // 修正角度，保持在0-2π范围内
+        angle = (angle + 2 * Math.PI) % (2 * Math.PI);
+
+        // 增加反弹计数
+        bounceCount++;
+    }
+
+    @Override
+    public int getBounceCount() {
+        return bounceCount;
+    }
+
+    @Override
+    public boolean canBounce() {
+        return bounceCount < MAX_BOUNCE;
     }
 
     public void draw(Graphics g) {
