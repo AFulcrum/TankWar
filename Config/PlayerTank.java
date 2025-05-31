@@ -12,7 +12,7 @@ import static Structure.ModeCardLayOut.PVPModeWidth;
 
 public class PlayerTank extends AbstractTank {
     private final boolean[] keysPressed = new boolean[512];
-    private static final int Health = 3;
+    private static int health = 3; // 初始生命值
     private Image[] tankImages = new Image[2];
     private int tankType;
     private double angle = 0; // 当前朝向角度，0为向上，顺时针为正
@@ -201,8 +201,19 @@ public class PlayerTank extends AbstractTank {
         }
     }
 
+    @Override
+    public void takeDamage(int damage) {
+        health -= damage;
+        if (health < 0) health = 0;
+    }
+
+    @Override
+    public boolean isAlive() {
+        return health > 0;
+    }
+
     public static int getHealth() {
-        return Health;
+        return health;
     }
 
 
@@ -218,7 +229,8 @@ public class PlayerTank extends AbstractTank {
         return bullets;
     }
 
+    @Override
     public Rectangle getCollisionBounds() {
-        return null;
+        return new Rectangle(x, y, width, height);
     }
 }

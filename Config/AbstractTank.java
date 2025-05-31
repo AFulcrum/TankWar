@@ -3,6 +3,8 @@ package Config;
 import InterFace.CollisionDetector;
 import InterFace.Tank;
 
+import java.awt.*;
+
 public abstract class AbstractTank implements Tank {
     protected CollisionDetector collisionDetector;
     protected int x, y;          // 坦克位置
@@ -102,4 +104,6 @@ public abstract class AbstractTank implements Tank {
     }
 
     public abstract int getDirection();
+
+    public abstract Rectangle getCollisionBounds();
 }

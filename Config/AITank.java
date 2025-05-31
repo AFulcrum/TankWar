@@ -2,6 +2,8 @@ package Config;
 
 import InterFace.CollisionDetector;
 
+import java.awt.*;
+
 public class AITank extends AbstractTank {
     public AITank(int x, int y, CollisionDetector collisionDetector) {
         super(x, y, 32, 32, 1, collisionDetector); // 敌方坦克1滴血
@@ -41,5 +43,10 @@ public class AITank extends AbstractTank {
     @Override
     public int getDirection() {
         return 0;
+    }
+
+    @Override
+    public Rectangle getCollisionBounds() {
+        return null;
     }
 }

@@ -276,7 +276,11 @@ public class ModeCardLayOut {
         beatPanel.add(beatNumLabel);
 
         // 游戏区域
-        PVPMode pvpMode = new PVPMode(new SimpleCollisionDetector(new Dimension(800, 600)));
+        PVPMode pvpMode = new PVPMode(
+                new SimpleCollisionDetector(new Dimension(800, 600)),
+                beatNumLabel,
+                healthLabel
+        );
         //显示时请求焦点
         SwingUtilities.invokeLater(() -> {
             pvpMode.requestFocusInWindow();

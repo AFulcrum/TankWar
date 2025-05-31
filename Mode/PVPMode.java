@@ -15,14 +15,18 @@ public class PVPMode extends JPanel {
     private boolean gameRunning = false;
     private CollisionDetector detector;
     private java.util.List<Wall> walls = new ArrayList<>(); // 添加墙体列表
+    private JLabel beatNumLabel;
+    private JLabel healthLabel;
 
 
-    public PVPMode(CollisionDetector collisionDetector) {
+    public PVPMode(CollisionDetector collisionDetector, JLabel beatLabel, JLabel healthLabel) {
         this.detector = collisionDetector;
         setLayout(new BorderLayout());
         setBackground(Color.WHITE);
         setFocusable(true);
         requestFocusInWindow();
+        this.beatNumLabel = beatLabel;
+        this.healthLabel = healthLabel;
 
         // 创建玩家坦克和AI坦克
         player = new PlayerTank(100, 100, collisionDetector);
@@ -135,6 +139,17 @@ public class PVPMode extends JPanel {
         repaint();
 
     }
+    private void updateDisplays() {
+        if (beatNumLabel != null) {
+            beatNumLabel.setText("<html><div style='text-align: center;'>击<br>败<br>数<br>"
+                    + ConfigTool.getBeatNum() + "</html>");
+        }
+        if (healthLabel != null) {
+            healthLabel.setText("<html><div style='text-align: center;'>生<br>命<br>值<br>"
+                    + PlayerTank.getHealth() + "<br>---</html>");
+        }
+    }
+
     private void checkBulletCollisions() {
         if (player == null || enemy == null || player.getBullets() == null) {
             return;
@@ -155,6 +170,7 @@ public class PVPMode extends JPanel {
                         // 敌方坦克被摧毁，增加得分
                         ConfigTool.setBeatNum(String.valueOf(ConfigTool.getBeatNum() + 1));
                         ConfigTool.saveConfig();
+                        updateDisplays();
 
                         // 1秒后在随机位置重生
                         Timer respawnTimer = new Timer(1000, e -> {
@@ -167,7 +183,38 @@ public class PVPMode extends JPanel {
                 }
             }
         }
+        //检查敌方子弹是否击中玩家坦克
+        for (EnemyBullet bullet : enemy.getBullets()) {
+            if (bullet.isActive() && player.isAlive()) {
+                Rectangle bulletBounds = bullet.getCollisionBounds();
+                Rectangle playerBounds = player.getCollisionBounds();
+
+                if (bulletBounds != null && playerBounds != null &&
+                        bulletBounds.intersects(playerBounds)) {
+                    // 击中玩家坦克
+                    bullet.deactivate();
+                    player.takeDamage(bullet.getDamage());
+                    updateDisplays();
+                    // 检查游戏是否结束
+                    if (!player.isAlive()) {
+                        gameOver();
+                    }
+                }
+            }
+        }
     }
+
+    // 游戏结束处理
+    private void gameOver() {
+        gameRunning = false;
+        gameTimer.stop();
+        JOptionPane.showMessageDialog(this,
+                "游戏结束！\n击败敌方坦克数: " + ConfigTool.getBeatNum(),
+                "游戏结束",
+                JOptionPane.INFORMATION_MESSAGE);
+        endGame();
+    }
+
 
     private void respawnEnemy() {
         Random rand = new Random();
@@ -220,28 +267,28 @@ public class PVPMode extends JPanel {
         enemy.drawBullets(g);
     }
 
-    private void drawTank(Graphics g, PlayerTank tank, Color color) {
-        g.setColor(color);
-        g.fillRect(tank.getX(), tank.getY(), tank.getWidth(), tank.getHeight());
-
-        // 绘制炮管方向
-        int centerX = tank.getX() + tank.getWidth()/2;
-        int centerY = tank.getY() + tank.getHeight()/2;
-        switch (tank.getDirection()) {
-            case 0: // 上
-                g.drawLine(centerX, centerY, centerX, centerY - 20);
-                break;
-            case 1: // 右
-                g.drawLine(centerX, centerY, centerX + 20, centerY);
-                break;
-            case 2: // 下
-                g.drawLine(centerX, centerY, centerX, centerY + 20);
-                break;
-            case 3: // 左
-                g.drawLine(centerX, centerY, centerX - 20, centerY);
-                break;
-        }
-    }
+//    private void drawTank(Graphics g, PlayerTank tank, Color color) {
+//        g.setColor(color);
+//        g.fillRect(tank.getX(), tank.getY(), tank.getWidth(), tank.getHeight());
+//
+//        // 绘制炮管方向
+//        int centerX = tank.getX() + tank.getWidth()/2;
+//        int centerY = tank.getY() + tank.getHeight()/2;
+//        switch (tank.getDirection()) {
+//            case 0: // 上
+//                g.drawLine(centerX, centerY, centerX, centerY - 20);
+//                break;
+//            case 1: // 右
+//                g.drawLine(centerX, centerY, centerX + 20, centerY);
+//                break;
+//            case 2: // 下
+//                g.drawLine(centerX, centerY, centerX, centerY + 20);
+//                break;
+//            case 3: // 左
+//                g.drawLine(centerX, centerY, centerX - 20, centerY);
+//                break;
+//        }
+//    }
 
 
     public void startGame() {

@@ -10,16 +10,19 @@ public class EnemyBullet implements Bullet {
     private int y;
     private int width = 10;
     private int height = 10;
-    private int speed = 1; // 比玩家子弹稍慢
+    private int speed = 10; // 比玩家子弹稍慢
     private int damage = 1;
     private boolean active = true;
     private double angle;
     private Image bulletImage;
+    private double dx, dy; // 方向向量
 
     public EnemyBullet(int x, int y, double angle) {
         this.x = x - width/2;
         this.y = y - height/2;
         this.angle = angle;
+        this.dx = speed * Math.sin(angle);
+        this.dy = speed * Math.cos(angle);
         loadBulletImage();
     }
 
@@ -52,12 +55,13 @@ public class EnemyBullet implements Bullet {
     @Override
     public void updatePosition() {
         if (!active) return;
-        x += speed * Math.sin(angle);
-        y -= speed * Math.cos(angle);
+        x += dx;
+        y -= dy;
     }
 
     @Override
     public Rectangle getCollisionBounds() {
+        if (!active) return null;
         return new Rectangle(x, y, width, height);
     }
 
