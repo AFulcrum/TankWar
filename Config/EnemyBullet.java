@@ -17,24 +17,28 @@ public class EnemyBullet implements Bullet {
     private Image bulletImage;
     private double dx, dy; // 方向向量
     private int bounceCount = 0;
-    private static final int MAX_BOUNCE = 100; // 最大反弹次数
+    private static final int MAX_BOUNCE = 66; // 最大反弹次数
 
     public EnemyBullet(int x, int y, double angle) {
         this.x = x - width/2;
         this.y = y - height/2;
         this.angle = angle;
-        this.dx = speed * Math.sin(angle);
-        this.dy = speed * Math.cos(angle);
+        this.dx = Math.sin(angle);
+        this.dy = -Math.cos(angle);
         loadBulletImage();
     }
 
     private void loadBulletImage() {
         try {
-            String path = "/Images/Bullet/Bullet5.png";
+            String path = "/Images/Bullet/bullet5.png";
             java.net.URL url = getClass().getResource(path);
             if (url == null) {
-                System.err.println("子弹图片不存在: " + path);
-                return;
+                path = "/Images/Bullet/bullet5.png";
+                url = getClass().getResource(path);
+                if (url == null) {
+                    System.err.println("子弹图片不存在: " + path);
+                    return;
+                }
             }
             ImageIcon icon = new ImageIcon(url);
             bulletImage = icon.getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH);
@@ -43,7 +47,6 @@ public class EnemyBullet implements Bullet {
         }
     }
 
-    // 实现Bullet接口方法，与PlayerBullet类似
     @Override
     public int getSpeed() {
         return speed;
@@ -57,13 +60,13 @@ public class EnemyBullet implements Bullet {
     @Override
     public void updatePosition() {
         if (!active) return;
-        x += dx;
-        y -= dy;
+        x += speed * dx;
+        y += speed * dy;
     }
 
     @Override
     public Rectangle getCollisionBounds() {
-        if (!active) return null;
+        if (!isActive()) return null;
         return new Rectangle(x, y, width, height);
     }
 
@@ -84,15 +87,26 @@ public class EnemyBullet implements Bullet {
             return;
         }
 
-        // 判断反弹方向（简化版）
+        // 获取当前移动方向
+        double penetrationFactor = 1.2;
+
+        // 判断反弹方向并确定更精确的后退距离
         if (Math.abs(dx) > Math.abs(dy)) {
             // 水平方向反弹
-            dx = -dx;
             angle = Math.PI - angle;
+            dx = -dx;
+
+            // 计算水平穿透的深度并调整位置
+            int penetrationDepth = Math.max(6, (int)(speed * Math.abs(dx) * penetrationFactor));
+            x -= (int)(Math.signum(dx) * penetrationDepth);
         } else {
             // 垂直方向反弹
-            dy = -dy;
             angle = -angle;
+            dy = -dy;
+
+            // 计算垂直穿透的深度并调整位置
+            int penetrationDepth = Math.max(6, (int)(speed * Math.abs(dy) * penetrationFactor));
+            y += (int)(Math.signum(dy) * penetrationDepth);
         }
 
         // 修正角度，保持在0-2π范围内
@@ -114,6 +128,27 @@ public class EnemyBullet implements Bullet {
 
     public void draw(Graphics g) {
         if (!active || bulletImage == null) return;
-        g.drawImage(bulletImage, x, y, null);
+
+        Graphics2D g2d = (Graphics2D) g.create();
+        g2d.translate(x + width/2, y + height/2);
+        g2d.rotate(angle);
+        g2d.drawImage(bulletImage, -width/2, -height/2, null);
+        g2d.dispose();
+    }
+
+    public double getAngle() {
+        return angle;
+    }
+
+    public void setAngle(double newAngle) {
+        this.angle = (newAngle + 2 * Math.PI) % (2 * Math.PI);
+        // 更新方向向量
+        this.dx = Math.sin(this.angle);
+        this.dy = -Math.cos(this.angle);
+    }
+
+    public void adjustPosition(int dx, int dy) {
+        this.x += dx;
+        this.y += dy;
     }
 }

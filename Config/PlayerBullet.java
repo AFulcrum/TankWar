@@ -16,7 +16,8 @@ public class PlayerBullet implements Bullet {
     private double angle; // 子弹飞行角度
     private Image bulletImage;
     private int bounceCount = 0;
-    private static final int MAX_BOUNCE = 100; // 最大反弹次数
+    private static final int MAX_BOUNCE = 66; // 最大反弹次数
+    private static final int BULLET_LIFETIME = 10000; // 子弹最大存活时间10秒
 
 
     public PlayerBullet(int x, int y, double angle) {
@@ -24,6 +25,11 @@ public class PlayerBullet implements Bullet {
         this.y = y - height/2;
         this.angle = angle;
         loadBulletImage();
+        // 添加子弹自动消失的定时器
+        new Timer(BULLET_LIFETIME, e -> {
+            deactivate();
+            ((Timer)e.getSource()).stop();
+        }).start();
     }
 
     private void loadBulletImage() {
@@ -84,21 +90,29 @@ public class PlayerBullet implements Bullet {
             return;
         }
 
-        // 确定是哪面墙进行反弹
-        // 简单实现：我们翻转角度，模拟反弹效果
-        // 检测是否是水平墙面还是垂直墙面的反弹
-
         // 获取当前移动方向
         double dx = Math.sin(angle);
         double dy = -Math.cos(angle);
 
-        // 判断反弹方向（简化版）
+        // 保存反弹前的位置，用于计算穿透深度
+        int prevX = x;
+        int prevY = y;
+
+        // 判断反弹方向并确定更精确的后退距离
         if (Math.abs(dx) > Math.abs(dy)) {
-            // 水平方向反弹，水平速度取反
+            // 水平方向反弹
             angle = Math.PI - angle;
+
+            // 计算水平穿透的深度并调整位置
+            int penetrationDepth = Math.max(6, (int)(speed * Math.abs(dx) * 1.2));
+            x -= (int)(Math.signum(dx) * penetrationDepth);
         } else {
-            // 垂直方向反弹，垂直速度取反
+            // 垂直方向反弹
             angle = -angle;
+
+            // 计算垂直穿透的深度并调整位置
+            int penetrationDepth = Math.max(6, (int)(speed * Math.abs(dy) * 1.2));
+            y += (int)(Math.signum(dy) * penetrationDepth);
         }
 
         // 修正角度，保持在0-2π范围内
@@ -121,5 +135,17 @@ public class PlayerBullet implements Bullet {
     public void draw(Graphics g) {
         if (!active || bulletImage == null) return;
         g.drawImage(bulletImage, x, y, null);
+    }
+
+    public double getAngle() {
+        return angle;
+    }
+    public void setAngle(double newAngle) {
+        this.angle = (newAngle + 2 * Math.PI) % (2 * Math.PI);
+    }
+
+    public void adjustPosition(int dx, int dy) {
+        this.x += dx;
+        this.y += dy;
     }
 }

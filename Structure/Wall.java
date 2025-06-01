@@ -68,24 +68,27 @@ public class Wall {
         List<Wall> walls = new ArrayList<>();
         int wallSize = DEFAULT_SIZE;
 
+        // 确保边界位置准确
+        int bottomY = gameHeight - wallSize - 1; // 减1确保边界内
+
         // 上边界
         for (int x = 0; x < gameWidth; x += wallSize) {
-            walls.add(new Wall(x, 0));
+            walls.add(new Wall(x, 1));
         }
 
-        // 下边界
+        // 下边界 - 修正位置
         for (int x = 0; x < gameWidth; x += wallSize) {
-            walls.add(new Wall(x, gameHeight - wallSize));
+            walls.add(new Wall(x, bottomY-1));
         }
 
         // 左边界
-        for (int y = wallSize; y < gameHeight - wallSize; y += wallSize) {
-            walls.add(new Wall(0, y));
+        for (int y = wallSize; y < bottomY; y += wallSize) {
+            walls.add(new Wall(1, y));
         }
 
         // 右边界
-        for (int y = wallSize; y < gameHeight - wallSize; y += wallSize) {
-            walls.add(new Wall(gameWidth - wallSize, y));
+        for (int y = wallSize; y < bottomY; y += wallSize) {
+            walls.add(new Wall(gameWidth - wallSize-1, y));
         }
 
         return walls;

@@ -16,7 +16,6 @@ public class PlayerTank extends AbstractTank {
     private boolean isMoving = false;
     private long lastImageSwitchTime = 0;
     private int currentImageIndex = 0;
-//    private List<PlayerBullet> bullets = new ArrayList<>();
     private List<PlayerBullet> bullets; // 子弹列表
     private boolean spaceKeyPressed = false; //记录空格键是否按下
 

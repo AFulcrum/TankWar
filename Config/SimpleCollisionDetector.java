@@ -23,15 +23,22 @@ public class SimpleCollisionDetector implements CollisionDetector {
     @Override
     public boolean isColliding(int x, int y, int width, int height) {
         if (gameAreaSize == null) return false;
-        // 检查边界碰撞
-        if (x < 0 || y < 0 || x + width > gameAreaSize.width || y + height > gameAreaSize.height) {
+        // 添加安全边距
+        int safetyMargin = 2;
+        // 检查边界碰撞( 添加安全边距 )
+        if (x < safetyMargin ||
+                y < safetyMargin ||
+                x + width > gameAreaSize.width - safetyMargin ||
+                y + height > gameAreaSize.height - safetyMargin) {
             return true;
         }
         // 检查墙体碰撞
         if (walls != null) {
             Rectangle objectBounds = new Rectangle(x, y, width, height);
             for (Wall wall : walls) {
-                if (objectBounds.intersects(wall.getCollisionBounds())) {
+                Rectangle wallBounds = wall.getCollisionBounds();
+                // 添加预检测，提前一点检测到墙体
+                if (objectBounds.intersects(wallBounds)) {
                     return true;
                 }
             }
