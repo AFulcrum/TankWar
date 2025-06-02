@@ -1,14 +1,14 @@
 package Config;
 
 import InterFace.CollisionDetector;
-import Structure.Wall;
+import Structure.PVPWall;
 
 import java.awt.*;
 import java.util.List;
 
 public class SimpleCollisionDetector implements CollisionDetector {
     private Dimension gameAreaSize;
-    private List<Wall> walls;
+    private List<PVPWall> PVPWalls;
 
     public SimpleCollisionDetector(Dimension gameAreaSize) {
         this.gameAreaSize = gameAreaSize;
@@ -16,8 +16,8 @@ public class SimpleCollisionDetector implements CollisionDetector {
     public void setGameAreaSize(Dimension size) {
         this.gameAreaSize = size;
     }
-    public void setWalls(List<Wall> walls) {
-        this.walls = walls;
+    public void setWalls(List<PVPWall> PVPWalls) {
+        this.PVPWalls = PVPWalls;
     }
 
     @Override
@@ -33,10 +33,10 @@ public class SimpleCollisionDetector implements CollisionDetector {
             return true;
         }
         // 检查墙体碰撞
-        if (walls != null) {
+        if (PVPWalls != null) {
             Rectangle objectBounds = new Rectangle(x, y, width, height);
-            for (Wall wall : walls) {
-                Rectangle wallBounds = wall.getCollisionBounds();
+            for (PVPWall PVPWall : PVPWalls) {
+                Rectangle wallBounds = PVPWall.getCollisionBounds();
                 // 添加预检测，提前一点检测到墙体
                 if (objectBounds.intersects(wallBounds)) {
                     return true;

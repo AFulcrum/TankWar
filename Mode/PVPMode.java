@@ -2,7 +2,7 @@ package Mode;
 
 import Config.*;
 import InterFace.CollisionDetector;
-import Structure.Wall;
+import Structure.PVPWall;
 
 import java.awt.*;
 import java.awt.event.*;
@@ -16,7 +16,7 @@ public class PVPMode extends JPanel {
     private Timer gameTimer;
     private boolean gameRunning = false;
     private CollisionDetector detector;
-    private java.util.List<Wall> walls = new ArrayList<>(); // 添加墙体列表
+    private java.util.List<PVPWall> PVPWalls = new ArrayList<>(); // 添加墙体列表
     private JLabel beatNumLabel;
     private JLabel healthLabel;
 
@@ -38,7 +38,7 @@ public class PVPMode extends JPanel {
 
         // 更新碰撞检测器
         if (detector instanceof SimpleCollisionDetector) {
-            ((SimpleCollisionDetector) detector).setWalls(walls);
+            ((SimpleCollisionDetector) detector).setWalls(PVPWalls);
         }
 
         // 设置键盘监听
@@ -58,10 +58,10 @@ public class PVPMode extends JPanel {
             public void componentResized(ComponentEvent e) {
                 updateCollisionBoundary();
                 // 重新初始化墙体
-                walls.clear();
+                PVPWalls.clear();
                 initWalls();
                 if (detector instanceof SimpleCollisionDetector) {
-                    ((SimpleCollisionDetector) detector).setWalls(walls);
+                    ((SimpleCollisionDetector) detector).setWalls(PVPWalls);
                 }
 
                 // 只有第一次调整大小时初始化坦克位置
@@ -145,10 +145,10 @@ public class PVPMode extends JPanel {
         // 只有当游戏区域大小足够时才初始化墙体
         if (getWidth() > 0 && getHeight() > 0) {
             // 添加边界墙体
-            walls.addAll(Wall.createBoundaryWalls(getWidth(), getHeight()));
+            PVPWalls.addAll(PVPWall.createBoundaryWalls(getWidth(), getHeight()));
 
             // 使用结构化墙体替代随机墙体
-            walls.addAll(Wall.createStructuredWalls(getWidth(), getHeight()));
+            PVPWalls.addAll(PVPWall.createStructuredWalls(getWidth(), getHeight()));
         }
     }
 
@@ -242,8 +242,8 @@ public class PVPMode extends JPanel {
             boolean hitWall = false;
             boolean isHorizontalCollision = false;
             // 检查是否与墙体碰撞
-            for (Wall wall : walls) {
-                Rectangle wallBounds = wall.getCollisionBounds();
+            for (PVPWall PVPWall : PVPWalls) {
+                Rectangle wallBounds = PVPWall.getCollisionBounds();
 
                 // 检查当前位置是否已经与墙重叠(可能已经穿模)
                 if (bulletBounds.intersects(wallBounds)) {
@@ -322,8 +322,8 @@ public class PVPMode extends JPanel {
                 boolean isHorizontalCollision = false;
 
                 // 检查墙体碰撞
-                for (Wall wall : walls) {
-                    Rectangle wallBounds = wall.getCollisionBounds();
+                for (PVPWall PVPWall : PVPWalls) {
+                    Rectangle wallBounds = PVPWall.getCollisionBounds();
 
                     if (bulletBounds.intersects(wallBounds)) {
                         hitWall = true;
@@ -519,8 +519,8 @@ public class PVPMode extends JPanel {
         g.fillRect(0, 0, getWidth(), getHeight());
 
         // 绘制墙体
-        for (Wall wall : walls) {
-            wall.draw(g);
+        for (PVPWall PVPWall : PVPWalls) {
+            PVPWall.draw(g);
         }
 
         // 绘制玩家坦克

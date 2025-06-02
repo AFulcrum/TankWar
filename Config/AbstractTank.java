@@ -106,4 +106,12 @@ public abstract class AbstractTank implements Tank {
     public abstract int getDirection();
 
     public abstract Rectangle getCollisionBounds();
+
+    public double getAngle() {
+        return 0;
+    }
+
+    public Image getCurrentImage() {
+        return null;
+    }
 }

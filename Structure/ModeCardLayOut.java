@@ -3,6 +3,7 @@ package Structure;
 import Config.ConfigTool;
 import Config.PlayerTank;
 import Config.SimpleCollisionDetector;
+import Mode.PVEMode;
 import Mode.PVPMode;
 
 import java.awt.*;
@@ -19,6 +20,8 @@ import javax.swing.*;
 public class ModeCardLayOut {
     public static int PVPModeWidth;
     public static int PVPModeHeight;
+    public static int PVEModeWidth;
+    public static int PVEModeHeight;
     public ModeCardLayOut(JFrame frame, HomeIcon homeIcon) {
         initModeCardLayOut(frame,homeIcon);
     }
@@ -36,13 +39,14 @@ public class ModeCardLayOut {
         // 4. 创建坦克战争面板
         // JPanel pvpPanel = createPVPPanel(cardLayout, mainPanel);
         // 5. 创建人机对战面板
-        JPanel pvePanel = createPVEPanel(cardLayout, mainPanel);
+//        JPanel pvePanel = createPVEPanel(cardLayout, mainPanel);
         // 将所有面板添加到主面板
         mainPanel.add(menuPanel, "Menu");
         mainPanel.add(rulesPanel, "Rules");
         mainPanel.add(tankSelectionPanel, "TankSelection");
         mainPanel.add(new JPanel(), "PVP"); // 占位，后续动态替换
-        mainPanel.add(pvePanel, "PVE");
+        mainPanel.add(new JPanel(), "PVE"); // 占位，后续动态替换
+//        mainPanel.add(pvePanel, "PVE");
         // 设置窗口布局
 
         frame.add(mainPanel, BorderLayout.CENTER);
@@ -86,7 +90,19 @@ public class ModeCardLayOut {
                             }
                         }
                     }
-                    case "人机对战" -> cardLayout.show(mainPanel, "PVE");
+                    case "人机对战" -> {
+                        JPanel newPvePanel = createPVEPanel(cardLayout, mainPanel);
+                        mainPanel.remove(mainPanel.getComponent(3)); // 移除旧的PVE面板（假设顺序不变）
+                        mainPanel.add(newPvePanel, "PVE");
+                        cardLayout.show(mainPanel, "PVE");
+                        // 让PVEMode获得焦点
+                        Component[] comps = ((JPanel)newPvePanel).getComponents();
+                        for (Component c : comps) {
+                            if (c instanceof PVPMode pvp) {
+                                SwingUtilities.invokeLater(pvp::requestFocusInWindow);
+                            }
+                        }
+                    }
                 }
             });
             buttonPanel.add(button);
@@ -312,7 +328,6 @@ public class ModeCardLayOut {
                         \s\s\s\s↓ - 向下移动
                         \s\s\s\s\s← - 左转
                         \s\s\s\s\s→ - 右转
-                        \s\s\s\sX - 使用技能
                          空格 - 发射子弹\s\s"""
         );
         controls.setEditable(false);
@@ -354,45 +369,47 @@ public class ModeCardLayOut {
     private static JPanel createPVEPanel(CardLayout cardLayout, JPanel mainPanel) {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBackground(new Color(230, 255, 230));
+        panel.setPreferredSize(new Dimension(800, 600));
 
+        // 标题
         JLabel title = new JLabel("人机对战", JLabel.CENTER);
         title.setFont(new Font("华文行楷", Font.BOLD, 30));
         title.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
 
-        //关卡数
-        JPanel aiTankLevel = new JPanel(new BorderLayout());
-        aiTankLevel.setBackground(new Color(212, 246, 212));
+        // 关卡和分数显示面板
+        JPanel scorePanel = new JPanel(new GridLayout(2, 1, 0, 10));
+        scorePanel.setPreferredSize(new Dimension(100, Integer.MAX_VALUE));
+        scorePanel.setBackground(new Color(212, 246, 212));
 
-        JPanel aiTankLevelPanel = new JPanel(new GridLayout(2, 1, 0, 10)); // 2行1列，垂直间距10
-        aiTankLevelPanel.setBackground(new Color(212, 246, 212));
-
-        JLabel aiLevel = new JLabel("<html><div style='text-align: center;'>第<br>"
-                + ConfigTool.getLevel() +
-                "<br>关<br>---</div></html>");
-        aiLevel.setFont(new Font("华文行楷", Font.BOLD, 30));
-        aiLevel.setForeground(Color.RED);
-        aiLevel.setHorizontalAlignment(JLabel.CENTER);
-        aiLevel.setVerticalAlignment(JLabel.CENTER);
-        JLabel aiScore = new JLabel("<html><div style='text-align: center;'>我方<br>" +
-                ConfigTool.getOurScore() + ":" + ConfigTool.getEnemyScore()
+        JLabel levelLabel = new JLabel("<html><div style='text-align: center;'>第<br>"
+                + ConfigTool.getLevel() + "<br>关</div></html>");
+        JLabel scoreLabel = new JLabel("<html><div style='text-align: center;'>我方<br>"
+                + ConfigTool.getOurScore() + ":" + ConfigTool.getEnemyScore()
                 + "<br>敌方</div></html>");
-        aiScore.setFont(new Font("华文行楷", Font.BOLD, 30));
-        aiScore.setForeground(Color.RED);
-        aiScore.setHorizontalAlignment(JLabel.CENTER);
-        aiScore.setVerticalAlignment(JLabel.CENTER);
 
-        aiLevel.setBorder(BorderFactory.createEmptyBorder(100, 0, -100, 0));
-        aiScore.setBorder(BorderFactory.createEmptyBorder(-100, 0, 100, 0));
+        levelLabel.setFont(new Font("华文行楷", Font.BOLD, 30));
+        scoreLabel.setFont(new Font("华文行楷", Font.BOLD, 30));
+        levelLabel.setForeground(Color.RED);
+        scoreLabel.setForeground(Color.RED);
 
-        aiTankLevelPanel.add(aiLevel);
-        aiTankLevelPanel.add(aiScore);
+        scorePanel.add(levelLabel);
+        scorePanel.add(scoreLabel);
 
-        aiTankLevel.add(aiTankLevelPanel, BorderLayout.CENTER);
+        // 创建PVEMode
+        PVEMode pveMode = new PVEMode(
+                new SimpleCollisionDetector(new Dimension(800, 600)),
+                levelLabel,
+                scoreLabel
+        );
 
-        // 游戏区域
-        JPanel gamePanel = new JPanel();
-        gamePanel.setBorder(BorderFactory.createTitledBorder("游戏区域"));
-        gamePanel.setPreferredSize(new Dimension(400, 300));
+        // 设置焦点
+        SwingUtilities.invokeLater(() -> {
+            pveMode.requestFocusInWindow();
+            if (pveMode.getDetector() instanceof SimpleCollisionDetector) {
+                ((SimpleCollisionDetector)pveMode.getDetector())
+                        .setGameAreaSize(pveMode.getSize());
+            }
+        });
 
         // 控制说明
         JTextArea controls = new JTextArea(
@@ -401,26 +418,40 @@ public class ModeCardLayOut {
                         \s\s\s\s↓ - 向下移动
                         \s\s\s\s\s← - 左转
                         \s\s\s\s\s→ - 右转
-                        \s\s\s\sX - 使用技能
                          空格 - 发射子弹\s\s"""
         );
         controls.setEditable(false);
         controls.setBackground(new Color(217, 250, 190));
+        controls.setPreferredSize(new Dimension(150, Integer.MAX_VALUE));
 
-        // 开始和返回按钮
+        // 控制按钮
         JButton startButton = new JButton("开始游戏");
+        startButton.addActionListener(e -> {
+            pveMode.startGame();
+            pveMode.requestFocusInWindow();
+        });
+
+        JButton pauseButton = new JButton("暂停游戏");
+        pauseButton.addActionListener(e -> pveMode.stopGame());
+
         JButton backButton = new JButton("返回主页");
-        backButton.addActionListener(e -> cardLayout.show(mainPanel, "Menu"));
+        backButton.addActionListener(e -> {
+            pveMode.endGame();
+            cardLayout.show(mainPanel, "Menu");
+        });
 
         JPanel buttonPanel = new JPanel();
         buttonPanel.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
         buttonPanel.add(backButton);
         buttonPanel.add(Box.createRigidArea(new Dimension(20, 0)));
+        buttonPanel.add(pauseButton);
+        buttonPanel.add(Box.createRigidArea(new Dimension(20, 0)));
         buttonPanel.add(startButton);
 
+        // 组装面板
         panel.add(title, BorderLayout.NORTH);
-        panel.add(aiTankLevel, BorderLayout.WEST);
-        panel.add(gamePanel, BorderLayout.CENTER);
+        panel.add(scorePanel, BorderLayout.WEST);
+        panel.add(pveMode, BorderLayout.CENTER);
         panel.add(controls, BorderLayout.EAST);
         panel.add(buttonPanel, BorderLayout.SOUTH);
 
