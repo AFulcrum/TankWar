@@ -281,7 +281,7 @@ public class ModeCardLayOut {
         beatNumLabel.setForeground(Color.RED);
         beatNumLabel.setHorizontalAlignment(JLabel.CENTER);
         beatNumLabel.setVerticalAlignment(JLabel.CENTER);
-        JLabel healthLabel=new JLabel("<html><div style='text-align: center;'>生<br>命<br>值<br>"+ PlayerTank.getHealth() + "<br>---</html>");
+        JLabel healthLabel=new JLabel("<html><div style='text-align: center;'>生<br>命<br>值<br>"+ PlayerTank.getHealth() + "</html>");
         healthLabel.setFont(new Font("华文行楷", Font.BOLD, 30));
         healthLabel.setForeground(Color.RED);
         healthLabel.setHorizontalAlignment(JLabel.CENTER);
@@ -391,6 +391,8 @@ public class ModeCardLayOut {
         scoreLabel.setFont(new Font("华文行楷", Font.BOLD, 30));
         levelLabel.setForeground(Color.RED);
         scoreLabel.setForeground(Color.RED);
+        levelLabel.setHorizontalAlignment(JLabel.CENTER);
+        scoreLabel.setHorizontalAlignment(JLabel.CENTER);
 
         scorePanel.add(levelLabel);
         scorePanel.add(scoreLabel);

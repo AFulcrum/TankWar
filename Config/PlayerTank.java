@@ -18,6 +18,8 @@ public class PlayerTank extends AbstractTank {
     private int currentImageIndex = 0;
     private List<PlayerBullet> bullets; // 子弹列表
     private boolean spaceKeyPressed = false; //记录空格键是否按下
+    private static final long FIRE_COOLDOWN = 1500; // 冷却时间1.5秒
+    private long lastFireTime = 0;
 
 
     public PlayerTank(int x, int y, CollisionDetector collisionDetector) {
@@ -124,13 +126,16 @@ public class PlayerTank extends AbstractTank {
 
     @Override
     public void fire() {
-        // 创建新子弹
-        PlayerBullet bullet = new PlayerBullet(
-                getX() + getWidth()/2,
-                getY() + getHeight()/2,
-                getAngle()
-        );
-        bullets.add(bullet);
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - lastFireTime >= FIRE_COOLDOWN) {
+            PlayerBullet bullet = new PlayerBullet(
+                    getX() + getWidth()/2,
+                    getY() + getHeight()/2,
+                    getAngle()
+            );
+            bullets.add(bullet);
+            lastFireTime = currentTime;
+        }
     }
     public void updateBullets() {
         // 移除失效的子弹
