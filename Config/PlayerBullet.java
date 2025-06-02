@@ -10,10 +10,12 @@ public class PlayerBullet implements Bullet {
     private int y;
     private int width = 10;
     private int height = 10;
+    private int radius = 5; // 子弹半径
     private int speed = 15;
     private int damage = 1;
     private boolean active = true;
     private double angle; // 子弹飞行角度
+    private Color bulletColor;
     private Image bulletImage;
     private int bounceCount = 0;
     private static final int MAX_BOUNCE = 66; // 最大反弹次数
@@ -24,7 +26,23 @@ public class PlayerBullet implements Bullet {
         this.x = x - width/2; // 调整初始位置，使子弹中心对准发射点
         this.y = y - height/2;
         this.angle = angle;
-        loadBulletImage();
+        // 根据坦克类型设置不同颜色
+        switch (ConfigTool.getSelectedTank()) {
+            case 1:
+                bulletColor = new Color(255, 69, 0); // 红色
+                break;
+            case 2:
+                bulletColor = new Color(30, 144, 255); // 蓝色
+                break;
+            case 3:
+                bulletColor = new Color(50, 205, 50); // 绿色
+                break;
+            case 4:
+                bulletColor = new Color(255, 165, 0); // 橙色
+                break;
+            default:
+                bulletColor = new Color(255, 69, 0); // 红色
+        }
         // 添加子弹自动消失的定时器
         new Timer(BULLET_LIFETIME, e -> {
             deactivate();
@@ -32,24 +50,6 @@ public class PlayerBullet implements Bullet {
         }).start();
     }
 
-    private void loadBulletImage() {
-        try {
-            String path = "/Images/Bullet/bullet" + ConfigTool.getSelectedTank() + ".png";
-            java.net.URL url = getClass().getResource(path);
-            if (url == null) {
-                path = "/Images/Bullet/bullet1.png";
-                url = getClass().getResource(path);
-                if (url == null) {
-                    System.err.println("子弹图片不存在: " + path);
-                    return;
-                }
-            }
-            ImageIcon icon = new ImageIcon(url);
-            bulletImage = icon.getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH);
-        } catch (Exception e) {
-            System.err.println("无法加载子弹图像: " + e.getMessage());
-        }
-    }
 
     @Override
     public int getSpeed() {
@@ -71,7 +71,7 @@ public class PlayerBullet implements Bullet {
     @Override
     public Rectangle getCollisionBounds() {
         if (!isActive()) return null;
-        return new Rectangle(x, y, width, height);
+        return new Rectangle(x - radius, y - radius, radius * 2, radius * 2);
     }
 
     @Override
@@ -132,9 +132,20 @@ public class PlayerBullet implements Bullet {
         return bounceCount < MAX_BOUNCE;
     }
 
+
+    @Override
     public void draw(Graphics g) {
-        if (!active || bulletImage == null) return;
-        g.drawImage(bulletImage, x, y, null);
+        if (!active) return;
+
+        Graphics2D g2d = (Graphics2D) g.create();
+        // 开启抗锯齿
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        // 绘制主体
+        g2d.setColor(bulletColor);
+        g2d.fillOval(x - radius, y - radius, radius * 2, radius * 2);
+
+        g2d.dispose();
     }
 
     public double getAngle() {
@@ -148,4 +159,5 @@ public class PlayerBullet implements Bullet {
         this.x += dx;
         this.y += dy;
     }
+
 }

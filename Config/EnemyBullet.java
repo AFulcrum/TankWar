@@ -10,10 +10,12 @@ public class EnemyBullet implements Bullet {
     private int y;
     private int width = 10;
     private int height = 10;
+    private int radius = 5; // 子弹半径
     private int speed = 10; // 比玩家子弹稍慢
     private int damage = 1;
     private boolean active = true;
     private double angle;
+    private Color bulletColor;
     private Image bulletImage;
     private double dx, dy; // 方向向量
     private int bounceCount = 0;
@@ -25,26 +27,7 @@ public class EnemyBullet implements Bullet {
         this.angle = angle;
         this.dx = Math.sin(angle);
         this.dy = -Math.cos(angle);
-        loadBulletImage();
-    }
-
-    private void loadBulletImage() {
-        try {
-            String path = "/Images/Bullet/bullet5.png";
-            java.net.URL url = getClass().getResource(path);
-            if (url == null) {
-                path = "/Images/Bullet/bullet5.png";
-                url = getClass().getResource(path);
-                if (url == null) {
-                    System.err.println("子弹图片不存在: " + path);
-                    return;
-                }
-            }
-            ImageIcon icon = new ImageIcon(url);
-            bulletImage = icon.getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH);
-        } catch (Exception e) {
-            System.err.println("无法加载子弹图像: " + e.getMessage());
-        }
+        bulletColor = new Color(154, 154, 154, 255); // 半透明红色
     }
 
     @Override
@@ -67,7 +50,7 @@ public class EnemyBullet implements Bullet {
     @Override
     public Rectangle getCollisionBounds() {
         if (!isActive()) return null;
-        return new Rectangle(x, y, width, height);
+        return new Rectangle(x - radius, y - radius, radius * 2, radius * 2);
     }
 
     @Override
@@ -126,13 +109,18 @@ public class EnemyBullet implements Bullet {
         return bounceCount < MAX_BOUNCE;
     }
 
+    @Override
     public void draw(Graphics g) {
-        if (!active || bulletImage == null) return;
+        if (!active) return;
 
         Graphics2D g2d = (Graphics2D) g.create();
-        g2d.translate(x + width/2, y + height/2);
-        g2d.rotate(angle);
-        g2d.drawImage(bulletImage, -width/2, -height/2, null);
+        // 开启抗锯齿
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        // 绘制主体
+        g2d.setColor(bulletColor);
+        g2d.fillOval(x - radius, y - radius, radius * 2, radius * 2);
+
         g2d.dispose();
     }
 

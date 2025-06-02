@@ -1,6 +1,6 @@
 package InterFace;
 
-import java.awt.Rectangle;
+import java.awt.*;
 
 public interface Bullet {
     int getSpeed();
@@ -18,4 +18,6 @@ public interface Bullet {
     int getBounceCount();
     // 检查是否可以继续反弹
     boolean canBounce();
+
+    void draw(Graphics g);
 }
