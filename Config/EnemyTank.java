@@ -265,6 +265,11 @@ public class EnemyTank extends AbstractTank {
         return angle;
     }
 
+    @Override
+    public void revive() {
+
+    }
+
     public void update() {
         if (!alive) return;
         updateMovement();

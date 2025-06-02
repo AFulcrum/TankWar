@@ -16,7 +16,6 @@ public class EnemyBullet implements Bullet {
     private boolean active = true;
     private double angle;
     private Color bulletColor;
-    private Image bulletImage;
     private double dx, dy; // 方向向量
     private int bounceCount = 0;
     private static final int MAX_BOUNCE = 66; // 最大反弹次数
@@ -71,7 +70,7 @@ public class EnemyBullet implements Bullet {
         }
 
         // 获取当前移动方向
-        double penetrationFactor = 1.2;
+        double penetrationFactor = 1.5;
 
         // 判断反弹方向并确定更精确的后退距离
         if (Math.abs(dx) > Math.abs(dy)) {

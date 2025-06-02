@@ -20,6 +20,7 @@ public class PlayerTank extends AbstractTank {
     private boolean spaceKeyPressed = false; //记录空格键是否按下
     private static final long FIRE_COOLDOWN = 1500; // 冷却时间1.5秒
     private long lastFireTime = 0;
+    private boolean alive = true;
 
 
     public PlayerTank(int x, int y, CollisionDetector collisionDetector) {
@@ -182,9 +183,10 @@ public class PlayerTank extends AbstractTank {
     }
 
     @Override
-    public boolean isAlive() {
-        return health > 0;
-    }
+    public boolean isAlive() { return alive; }
+    public void setAlive(boolean alive) { this.alive = alive; }
+    public void revive() { this.alive = true; health = 3; } // 重置生命值
+
 
     public static int getHealth() {
         return health;
@@ -211,5 +213,9 @@ public class PlayerTank extends AbstractTank {
     public void setPosition(int playerX, int playerY) {
         this.x = playerX;
         this.y = playerY;
+    }
+
+    public boolean isShooting() {
+        return false;
     }
 }

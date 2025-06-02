@@ -160,4 +160,11 @@ public class PlayerBullet implements Bullet {
         this.y += dy;
     }
 
+    public double getX() {
+        return x + width / 2.0; // 返回子弹中心的X坐标
+    }
+
+    public double getY() {
+        return y + height / 2.0; // 返回子弹中心的Y坐标
+    }
 }

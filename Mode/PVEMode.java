@@ -1,3 +1,4 @@
+// PVEMode.java
 package Mode;
 
 import Config.*;
@@ -12,7 +13,7 @@ import java.util.Random;
 
 public class PVEMode extends JPanel implements KeyListener {
     private PlayerTank player;
-    private ArrayList<AITank> aiTanks;
+    private AITank aiTank;
     private ArrayList<PVEWall> walls;
     private Timer gameTimer;
     private boolean gameRunning;
@@ -22,11 +23,10 @@ public class PVEMode extends JPanel implements KeyListener {
     private int currentLevel;
     private int playerScore;
     private int enemyScore;
-    private static final int INITIAL_AI_TANKS = 2;
-    private static final int SCORE_TO_WIN = 10;
-    private static final int SCORE_TO_LOSE = 10;
+    private static final int SCORE_TO_WIN = 3;
+    private static final int SCORE_TO_LOSE = 3;
+    private static final int RESPAWN_DISTANCE = 150; // 重生时最小距离
 
-    // 添加组件监听器以在尺寸变化时重新初始化墙体
     public PVEMode(CollisionDetector detector, JLabel levelLabel, JLabel scoreLabel) {
         this.detector = detector;
         this.levelLabel = levelLabel;
@@ -40,12 +40,12 @@ public class PVEMode extends JPanel implements KeyListener {
         setFocusable(true);
         addKeyListener(this);
 
-        // 添加组件监听器
         addComponentListener(new ComponentAdapter() {
             @Override
             public void componentResized(ComponentEvent e) {
-                if (aiTanks != null && aiTanks.isEmpty()) {
-                    spawnAITanks();
+                // 重新布局时重置AI坦克
+                if (aiTank == null) {
+                    spawnAITank();
                 }
             }
         });
@@ -62,93 +62,186 @@ public class PVEMode extends JPanel implements KeyListener {
 
     private void initGame() {
         walls = new ArrayList<>();
-        aiTanks = new ArrayList<>();
         player = new PlayerTank(50, 50, detector);
-
+        aiTank = null;
         initWalls();
-        spawnAITanks();
+        spawnAITank();
         updateDisplays();
     }
 
     private void initWalls() {
         Random random = new Random();
         int wallCount = 5 + currentLevel * 2;
-
-        // 使用默认尺寸或等待组件尺寸可用
         int areaWidth = getWidth() <= 0 ? 800 : getWidth();
         int areaHeight = getHeight() <= 0 ? 600 : getHeight();
 
         for (int i = 0; i < wallCount; i++) {
-            // 确保有40像素的边距
             int x = random.nextInt(Math.max(1, areaWidth - 40));
             int y = random.nextInt(Math.max(1, areaHeight - 40));
             walls.add(new PVEWall(x, y));
         }
     }
 
-    private void spawnAITanks() {
+    private void spawnAITank() {
         Random rand = new Random();
-        int tankCount = INITIAL_AI_TANKS + (currentLevel - 1);
-
-        // 使用默认尺寸或等待组件尺寸可用
         int areaWidth = getWidth() <= 0 ? 800 : getWidth();
         int areaHeight = getHeight() <= 0 ? 600 : getHeight();
-
-        // 保证坦克不会生成在边缘
         int margin = 100;
-        int spawnWidth = Math.max(1, areaWidth - 2 * margin);
-        int spawnHeight = Math.max(1, areaHeight - 2 * margin);
+        int x, y;
+        int attempts = 0;
+        final int MAX_ATTEMPTS = 50;
 
-        for (int i = 0; i < tankCount; i++) {
-            int x = margin + rand.nextInt(spawnWidth);
-            int y = margin + rand.nextInt(spawnHeight);
-            AITank aiTank = new AITank(x, y, detector);
-            aiTanks.add(aiTank);
+        do {
+            x = margin + rand.nextInt(Math.max(1, areaWidth - 2 * margin));
+            y = margin + rand.nextInt(Math.max(1, areaHeight - 2 * margin));
+            attempts++;
+
+            // 防止无限循环
+            if (attempts >= MAX_ATTEMPTS) {
+                // 如果找不到合适位置，强制生成在边缘
+                x = margin;
+                y = margin;
+                break;
+            }
+        } while (distance(x, y, player.getX(), player.getY()) < RESPAWN_DISTANCE ||
+                isPositionBlocked(x, y));
+
+        if (aiTank == null) {
+            aiTank = new AITank(x, y, detector);
+        } else {
+            aiTank.setPosition(x, y);
+            aiTank.revive();
         }
     }
+    // 检查位置是否被阻挡
+    private boolean isPositionBlocked(int x, int y) {
+        Rectangle newPos = new Rectangle(x, y, 64, 64);
 
-    private void updateGame() {
-        player.updateMovement();
-        player.updateBullets();
-
-        // 更新AI坦克
-        for (AITank aiTank : aiTanks) {
-            if (aiTank.isAlive()) {
-                aiTank.updateAI(player, currentLevel);
+        // 检查与墙体的碰撞
+        for (PVEWall wall : walls) {
+            if (newPos.intersects(wall.getCollisionBounds())) {
+                return true;
+            }
+        }
+        // 检查与玩家的距离
+        if (player != null && player.isAlive()) {
+            if (distance(x, y, player.getX(), player.getY()) < RESPAWN_DISTANCE) {
+                return true;
             }
         }
 
-        checkCollisions();
-        checkScores();
-        updateDisplays();
+        return false;
     }
 
-    private void checkCollisions() {
-        // 检查玩家子弹与AI坦克碰撞
+    private void respawnTank(AbstractTank tank, AbstractTank other) {
+        Random rand = new Random();
+        int areaWidth = getWidth() <= 0 ? 800 : getWidth();
+        int areaHeight = getHeight() <= 0 ? 600 : getHeight();
+        int margin = 50;
+        int x, y;
+        int attempts = 0;
+        final int MAX_ATTEMPTS = 50;
+
+        do {
+            x = margin + rand.nextInt(areaWidth - 2 * margin);
+            y = margin + rand.nextInt(areaHeight - 2 * margin);
+            attempts++;
+
+            if (attempts >= MAX_ATTEMPTS) {
+                x = margin;
+                y = margin;
+                break;
+            }
+        } while (distance(x, y, other.getX(), other.getY()) < RESPAWN_DISTANCE ||
+                isPositionBlocked(x, y));
+
+        tank.setPosition(x, y);
+        tank.revive();
+    }
+
+    private double distance(int x1, int y1, int x2, int y2) {
+        return Math.sqrt((x1 - x2)*(x1 - x2) + (y1 - y2)*(y1 - y2));
+    }
+
+    private void updateGame() {
+        if (player.isAlive()) {
+            player.updateMovement();
+            player.updateBullets();
+        }
+        if (aiTank != null && aiTank.isAlive()) {
+            aiTank.updateAI(player, currentLevel);
+        }
+        checkCollisions();
+        checkBulletWallCollisions();
+        checkScores();
+        updateDisplays();
+        player.updateBullets();
+        if (aiTank != null) {
+            aiTank.updateBullets();
+        }
+
+        // 添加墙体碰撞检测
+        checkBulletWallCollisions();
+    }
+    // 新增墙体碰撞检测方法
+    private void checkBulletWallCollisions() {
+        // 检测玩家子弹与墙体碰撞
         for (PlayerBullet bullet : player.getBullets()) {
             if (!bullet.isActive()) continue;
-
-            for (AITank aiTank : aiTanks) {
-                if (aiTank.isAlive() && bullet.getCollisionBounds().intersects(aiTank.getCollisionBounds())) {
-                    bullet.deactivate();
-                    aiTank.learn(false);
-                    playerScore++;
-                    ConfigTool.setOurScore(String.valueOf(playerScore));
+            for (PVEWall wall : walls) {
+                if (bullet.getCollisionBounds().intersects(wall.getCollisionBounds())) {
+                    bullet.bounce();
                     break;
                 }
             }
         }
 
-        // 检查AI子弹与玩家碰撞
-        for (AITank aiTank : aiTanks) {
+        // 检测AI子弹与墙体碰撞
+        if (aiTank != null) {
             for (EnemyBullet bullet : aiTank.getBullets()) {
-                if (bullet.isActive()) {
-                    if (bullet.getCollisionBounds().intersects(player.getCollisionBounds())) {
-                        bullet.deactivate();
-                        aiTank.learn(true);
-                        enemyScore++;
-                        ConfigTool.setEnemyScore(String.valueOf(enemyScore));
+                if (!bullet.isActive()) continue;
+                for (PVEWall wall : walls) {
+                    if (bullet.getCollisionBounds().intersects(wall.getCollisionBounds())) {
+                        bullet.bounce();
+                        break;
                     }
+                }
+            }
+        }
+    }
+
+    private void checkCollisions() {
+        // 玩家子弹击中AI
+        if (player.isAlive() && aiTank != null && aiTank.isAlive()) {
+            for (PlayerBullet bullet : player.getBullets()) {
+                if (!bullet.isActive()) continue;
+                if (bullet.getCollisionBounds().intersects(aiTank.getCollisionBounds())) {
+                    bullet.deactivate();
+                    aiTank.setAlive(false);
+                    playerScore++;
+                    ConfigTool.setOurScore(String.valueOf(playerScore));
+                    // 延迟重生AI
+                    Timer respawnTimer = new Timer(800, e -> respawnTank(aiTank, player));
+                    respawnTimer.setRepeats(false);
+                    respawnTimer.start();
+                    break;
+                }
+            }
+        }
+        // AI子弹击中玩家
+        if (aiTank != null && aiTank.isAlive() && player.isAlive()) {
+            for (EnemyBullet bullet : aiTank.getBullets()) {
+                if (!bullet.isActive()) continue;
+                if (bullet.getCollisionBounds().intersects(player.getCollisionBounds())) {
+                    bullet.deactivate();
+                    player.setAlive(false);
+                    enemyScore++;
+                    ConfigTool.setEnemyScore(String.valueOf(enemyScore));
+                    // 延迟重生玩家
+                    Timer respawnTimer = new Timer(800, e -> respawnTank(player, aiTank));
+                    respawnTimer.setRepeats(false);
+                    respawnTimer.start();
+                    break;
                 }
             }
         }
@@ -183,7 +276,6 @@ public class PVEMode extends JPanel implements KeyListener {
         enemyScore = 0;
         ConfigTool.setOurScore("0");
         ConfigTool.setEnemyScore("0");
-
         initGame();
         gameRunning = true;
     }
@@ -198,28 +290,26 @@ public class PVEMode extends JPanel implements KeyListener {
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-
-        // 绘制墙体
         for (PVEWall wall : walls) {
             wall.draw(g);
         }
-
         // 绘制玩家
-        if (player != null && player.getCurrentImage() != null) {
+        if (player != null && player.isAlive() && player.getCurrentImage() != null) {
             Graphics2D g2d = (Graphics2D) g.create();
             drawTank(g2d, player);
             player.drawBullets(g);
             g2d.dispose();
         }
-
-        // 绘制AI坦克
-        for (AITank aiTank : aiTanks) {
-            if (aiTank.isAlive()) {
-                Graphics2D g2d = (Graphics2D) g.create();
-                drawTank(g2d, aiTank);
-                aiTank.drawBullets(g);
-                g2d.dispose();
-            }
+        // 绘制AI
+        if (aiTank != null && aiTank.isAlive() && aiTank.getCurrentImage() != null) {
+            Graphics2D g2d = (Graphics2D) g.create();
+            drawTank(g2d, aiTank);
+            aiTank.drawBullets(g);
+            g2d.dispose();
+        }
+        player.drawBullets(g);
+        if (aiTank != null) {
+            aiTank.drawBullets(g);
         }
     }
 
@@ -229,54 +319,43 @@ public class PVEMode extends JPanel implements KeyListener {
         int width = tank.getWidth();
         int height = tank.getHeight();
         double angle = tank.getAngle();
-
         g2d.translate(x + width / 2, y + height / 2);
         g2d.rotate(angle);
         g2d.drawImage(tank.getCurrentImage(), -width / 2, -height / 2, width, height, null);
     }
 
-    // KeyListener实现
     @Override
     public void keyPressed(KeyEvent e) {
-        if (player != null) {
+        if (player != null && player.isAlive()) {
             player.handleKeyPress(e.getKeyCode());
         }
     }
-
     @Override
     public void keyReleased(KeyEvent e) {
-        if (player != null) {
+        if (player != null && player.isAlive()) {
             player.handleKeyRelease(e.getKeyCode());
         }
     }
-
     @Override
     public void keyTyped(KeyEvent e) {}
 
-    // 游戏控制方法
     public void startGame() {
         gameRunning = true;
         gameTimer.start();
         requestFocus();
     }
-
     public void stopGame() {
         gameRunning = false;
         gameTimer.stop();
     }
-
     public void endGame() {
         gameRunning = false;
         gameTimer.stop();
-        // 保存AI学习数据
-        for (AITank aiTank : aiTanks) {
-            aiTank.saveLearnedData();
-        }
+        if (aiTank != null) aiTank.saveLearnedData();
         player = null;
-        aiTanks.clear();
+        aiTank = null;
         walls.clear();
     }
-
     public CollisionDetector getDetector() {
         return detector;
     }

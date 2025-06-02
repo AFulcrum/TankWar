@@ -114,4 +114,11 @@ public abstract class AbstractTank implements Tank {
     public Image getCurrentImage() {
         return null;
     }
+
+    public void setPosition(int x, int y) {
+        this.x = x;
+        this.y = y;
+    }
+
+    public abstract void revive();
 }
