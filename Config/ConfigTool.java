@@ -5,7 +5,6 @@ import java.util.Properties;
 
 public class ConfigTool {
     private static final String DATA_DIR = System.getProperty("user.dir")
-            + File.separator + "TankWar"
             + File.separator + "Data";
     private static final String CONFIG_FILE = "TankConfig.properties";
 
@@ -123,5 +122,10 @@ public class ConfigTool {
         props.setProperty("tankWhetherSelected", "false");
         props.setProperty("selectedTank", "null");
         saveConfig();
+    }
+
+    public static boolean isDebugMode() {
+        String debugMode = props.getProperty("debugMode");
+        return debugMode != null && debugMode.equalsIgnoreCase("true");
     }
 }

@@ -55,6 +55,8 @@ public abstract class AbstractTank implements Tank {
     @Override
     public abstract void fire(); // 射击方式
 
+    public abstract void fire(PlayerTank player);
+
     @Override
     public abstract void useSkill(); // 技能
 
@@ -121,4 +123,9 @@ public abstract class AbstractTank implements Tank {
     }
 
     public abstract void revive();
+
+    protected boolean isColliding(int newX, int newY, int width, int height) {
+        // 检查是否与其他物体发生碰撞
+        return collisionDetector.isColliding(newX, newY, width, height);
+    }
 }

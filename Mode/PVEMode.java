@@ -58,10 +58,6 @@ public class PVEMode extends JPanel implements KeyListener {
                 // 确保坦克在新边界内
                 checkAndAdjustTankPositions();
 
-                // 重新布局时重置AI坦克
-                if (aiTank == null) {
-                    spawnAITank();
-                }
             }
         });
 
@@ -78,10 +74,42 @@ public class PVEMode extends JPanel implements KeyListener {
     private void initGame() {
         walls = new ArrayList<>();
         player = new PlayerTank(50, 50, detector);
-        aiTank = null;
         initWalls();
-        spawnAITank();
+        // 只在第一次初始化AI坦克
+        if (aiTank == null) {
+            spawnAITank();
+        } else {
+            // 已存在则只重置状态和位置
+            resetAITank();
+        }
         updateDisplays();
+    }
+    private void resetAITank() {
+        if (aiTank != null) {
+            // 生成新的随机位置
+            Random rand = new Random();
+            int margin = 100;
+            int x, y;
+            int attempts = 0;
+            final int MAX_ATTEMPTS = 50;
+
+            do {
+                x = margin + rand.nextInt(Math.max(1, gameAreaWidth - 2 * margin));
+                y = margin + rand.nextInt(Math.max(1, gameAreaHeight - 2 * margin));
+                attempts++;
+
+                if (attempts >= MAX_ATTEMPTS) {
+                    x = margin;
+                    y = margin;
+                    break;
+                }
+            } while (distance(x, y, player.getX(), player.getY()) < RESPAWN_DISTANCE ||
+                    isPositionBlocked(x, y));
+
+            // 只更新位置和状态，保持AI学习数据
+            aiTank.setPosition(x, y);
+            aiTank.revive();
+        }
     }
 
     private void initWalls() {
@@ -309,7 +337,18 @@ public class PVEMode extends JPanel implements KeyListener {
         enemyScore = 0;
         ConfigTool.setOurScore("0");
         ConfigTool.setEnemyScore("0");
-        initGame();
+
+        // 只重置地图和坦克位置，不重新生成AI坦克
+        walls = new ArrayList<>();
+        player = new PlayerTank(50, 50, detector);
+        initWalls();
+
+        // 只重置AI坦克位置，保持AI学习数据
+        if (aiTank != null) {
+            resetAITank();  // 第一次重置位置
+        }
+
+        updateDisplays();
         gameRunning = true;
     }
 

@@ -6,6 +6,7 @@ import javax.swing.*;
 import java.awt.*;
 
 public class EnemyBullet implements Bullet {
+    public static final Object DEFAULT_SPEED = 15;
     private int x;
     private int y;
     private int width = 10;

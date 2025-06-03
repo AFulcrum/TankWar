@@ -362,6 +362,11 @@ public class EnemyTank extends AbstractTank {
         }).start();
     }
 
+    @Override
+    public void fire(PlayerTank player) {
+
+    }
+
     public void updateBullets() {
         for (int i = bullets.size() - 1; i >= 0; i--) {
             EnemyBullet bullet = bullets.get(i);

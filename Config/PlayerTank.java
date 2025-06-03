@@ -138,6 +138,12 @@ public class PlayerTank extends AbstractTank {
             lastFireTime = currentTime;
         }
     }
+
+    @Override
+    public void fire(PlayerTank player) {
+
+    }
+
     public void updateBullets() {
         // 移除失效的子弹
         bullets.removeIf(bullet -> !bullet.isActive());
@@ -218,5 +224,9 @@ public class PlayerTank extends AbstractTank {
 
     public boolean isShooting() {
         return false;
+    }
+
+    public boolean isMoving() {
+        return isMoving;
     }
 }
