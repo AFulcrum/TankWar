@@ -12,12 +12,18 @@ import java.util.Map;
 
 public class AITank extends AbstractTank {
     // 学习率控制学习速度
-    private double learningRate = 0.1;
+    private double learningRate = 0.5;
     // 衰减因子控制旧经验的权重
-    private double decayFactor = 0.95;
+    private double decayFactor = 0.5;
     // 保存学习数据的权重表
     private Map<String, Double> weights;
+    private static final String DATA_DIR = System.getProperty("user.dir")
+            + File.separator + "TankWar"
+            + File.separator + "Data";
+
     private static final String SAVE_FILE = "AITankData.dat";
+
+
     private long lastActionTime;
     private static final long ACTION_DELAY = 100;
     private List<EnemyBullet> bullets;
@@ -27,17 +33,27 @@ public class AITank extends AbstractTank {
     private Map<String, Double> playerPatterns; // 记录玩家行为模式
     private long lastPlayerPositionUpdate;
     private static final long PATTERN_UPDATE_INTERVAL = 1000;
-    private static final int BASE_SPEED = 6; // 基础速度
+    private static final int BASE_SPEED =9; // 基础速度
     private int currentSpeed = BASE_SPEED;
 
     public AITank(int x, int y, CollisionDetector detector) {
         super(x, y, 64, 64, 1, detector);
+        createDataDirectory();
         this.weights = loadLearnedData();
         this.playerPatterns = new HashMap<>();
         this.lastActionTime = System.currentTimeMillis();
         this.lastPlayerPositionUpdate = System.currentTimeMillis();
         this.bullets = new ArrayList<>();
         loadTankImage();
+    }
+    private void createDataDirectory() {
+        File dataDir = new File(DATA_DIR);
+        if (!dataDir.exists()) {
+            boolean created = dataDir.mkdirs();
+            if (!created) {
+                System.err.println("无法创建数据目录: " + DATA_DIR);
+            }
+        }
     }
 
     private void loadTankImage() {
@@ -154,7 +170,7 @@ public class AITank extends AbstractTank {
         // 计算玩家子弹的威胁位置
         for (PlayerBullet bullet : player.getBullets()) {
             double bulletDistance = Math.sqrt(Math.pow(bullet.getX() - x, 2) + Math.pow(bullet.getY() - y, 2));
-            if (bulletDistance < 100) { // 如果子弹距离小于100像素，触发躲避
+            if (bulletDistance < 250) { // 如果子弹距离小于100像素，触发躲避
                 evadeFrom(player, levelFactor);
                 return;
             }
@@ -168,7 +184,7 @@ public class AITank extends AbstractTank {
         // 计算玩家子弹的威胁位置
         for (PlayerBullet bullet : player.getBullets()) {
             double bulletDistance = Math.sqrt(Math.pow(bullet.getX() - x, 2) + Math.pow(bullet.getY() - y, 2));
-            if (bulletDistance < 100) { // 如果子弹距离小于100像素，触发躲避
+            if (bulletDistance < 250) { // 如果子弹距离小于100像素，触发躲避
                 evadeFrom(player, levelFactor);
                 return;
             }
@@ -195,7 +211,7 @@ public class AITank extends AbstractTank {
         return false;
     }
 
-    // 新增方法：预测性追击
+    // 预测性追击
     private void predictiveChase(PlayerTank player, double speedFactor) {
         // 预测玩家移动方向
         double predictDistance = 50 * speedFactor;
@@ -219,15 +235,15 @@ public class AITank extends AbstractTank {
         }
     }
 
-    // 新增方法：智能射击决策
+    //智能射击决策
     private boolean shouldShoot(PlayerTank player, double distance, double angleToPlayer, double levelFactor) {
         // 基础射击概率
         double baseProb = 0.3 * levelFactor;
 
-        // 距离因素 - 中等距离时命中率更高
+        // 距离因素,中等距离时命中率更高
         double distanceFactor = 1 - Math.abs(distance - 250) / 250;
 
-        // 角度因素 - 正对玩家时命中率更高
+        // 角度因素,正对玩家时命中率更高
         double angleDiff = Math.abs(normalizeAngle(angle - angleToPlayer));
         double angleFactor = 1 - angleDiff / Math.PI;
 
@@ -237,7 +253,7 @@ public class AITank extends AbstractTank {
         return Math.random() < shootProb;
     }
 
-    // 辅助方法：标准化角度到[0, 2π]
+    // 标准化角度到[0, 2π]
     private double normalizeAngle(double angle) {
         angle = angle % (2 * Math.PI);
         return angle < 0 ? angle + 2 * Math.PI : angle;
@@ -251,6 +267,18 @@ public class AITank extends AbstractTank {
         for (EnemyBullet bullet : bullets) {
             bullet.updatePosition();
         }
+    }
+    // 死亡时的学习加强
+    public void onDeath(PlayerTank player) {
+        // 死亡时进行强化学习
+        double deathPenalty = -0.5; // 死亡惩罚
+        learn(false, player);
+        // 额外更新权重
+        updateBasicWeights(deathPenalty * 2);
+        updatePositionBasedLearning(player, deathPenalty);
+        updatePatternRecognition(deathPenalty);
+        // 保存学习数据
+        saveLearnedData();
     }
 
     private double calculateAngleToPlayer(PlayerTank player) {
@@ -404,44 +432,48 @@ public class AITank extends AbstractTank {
 
     // 增强的保存方法
     public void saveLearnedData() {
-        // 创建配置目录如果不存在
-        new File("Config").mkdirs();
-
+        File saveFile = new File(DATA_DIR, SAVE_FILE);
         try (ObjectOutputStream oos = new ObjectOutputStream(
-                new FileOutputStream("Config/" + SAVE_FILE))) {
-            // 保存权重和玩家模式数据
-            Map<String, Object> saveData = new HashMap<>();
-            saveData.put("weights", weights);
-            saveData.put("playerPatterns", playerPatterns);
-            oos.writeObject(saveData);
+                new FileOutputStream(saveFile))) {
+            oos.writeObject(weights);
+            System.out.println("AI数据已保存到: " + saveFile.getAbsolutePath());
         } catch (IOException e) {
-            System.err.println("无法保存AI学习数据：" + e.getMessage());
+            System.err.println("保存AI数据失败: " + e.getMessage());
         }
     }
 
-    // 增强的加载方法
     @SuppressWarnings("unchecked")
     private Map<String, Double> loadLearnedData() {
-        File file = new File("Config/" + SAVE_FILE);
-        if (!file.exists()) return createDefaultWeights();
+        File file = new File(DATA_DIR, SAVE_FILE);
+        if (!file.exists()) {
+            System.out.println("未找到AI数据文件,创建默认权重");
+            return createDefaultWeights();
+        }
 
         try (ObjectInputStream ois = new ObjectInputStream(
                 new FileInputStream(file))) {
-            Map<String, Object> loadedData = (Map<String, Object>) ois.readObject();
-            this.weights = (Map<String, Double>) loadedData.getOrDefault("weights", createDefaultWeights());
-            this.playerPatterns = (Map<String, Double>) loadedData.getOrDefault("playerPatterns", new HashMap<>());
-            return weights;
-        } catch (IOException | ClassNotFoundException e) {
-            System.err.println("加载AI数据失败，使用默认值: " + e.getMessage());
-            return createDefaultWeights();
+            Map<String, Object> saveData = (Map<String, Object>) ois.readObject();
+
+            if (saveData.containsKey("weights")) {
+                return (Map<String, Double>) saveData.get("weights");
+            }
+        } catch (Exception e) {
+            System.err.println("加载AI数据失败: " + e.getMessage());
         }
+        return createDefaultWeights();
     }
 
+    // 改进默认权重设置
     private Map<String, Double> createDefaultWeights() {
         Map<String, Double> defaults = new HashMap<>();
-        defaults.put("chase", 0.7);
-        defaults.put("evade", 0.3);
-        defaults.put("shoot", 0.5);
+        // 设置更激进的初始值
+        defaults.put("chase", 0.8);    // 追击倾向
+        defaults.put("evade", 0.6);    // 躲避倾向
+        defaults.put("shoot", 0.7);    // 射击倾向
+        defaults.put("pattern_recognition", 0.5); // 模式识别
+        // 添加新的策略权重
+        defaults.put("aggressive", 0.7);  // 激进程度
+        defaults.put("defensive", 0.6);   // 防御程度
         return defaults;
     }
 

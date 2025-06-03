@@ -12,7 +12,7 @@ public abstract class AbstractTank implements Tank {
     protected int health;        // 生命值
     protected boolean alive;     // 是否存活
     protected int direction;     // 当前方向(0:上, 1:右, 2:下, 3:左)
-    protected int speed = 2;     // 移动速度
+    protected int speed = 5;     // 移动速度
     protected static final long FIRE_INTERVAL = 500; // 开火间隔
 
     public AbstractTank(int x, int y,

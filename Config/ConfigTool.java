@@ -4,7 +4,11 @@ import java.io.*;
 import java.util.Properties;
 
 public class ConfigTool {
-    protected static final String CONFIG_FILE = "TankConfig.properties";
+    private static final String DATA_DIR = System.getProperty("user.dir")
+            + File.separator + "TankWar"
+            + File.separator + "Data";
+    private static final String CONFIG_FILE = "TankConfig.properties";
+
     protected static Properties props = new Properties();
 
     static {
@@ -13,15 +17,30 @@ public class ConfigTool {
 
     //加载配置文件
     protected static void loadConfig() {
-        try (InputStream input = ConfigTool.class.getClassLoader().getResourceAsStream(CONFIG_FILE)) {
-            if (input != null) {
-                props.load(input);
-            } else {
-                initDefaultConfig();
-            }
-        } catch (IOException ex) {
-            System.err.println("无法加载配置文件，使用默认值");
+        File configFile = new File(DATA_DIR, CONFIG_FILE);
+        if (!configFile.exists()) {
             initDefaultConfig();
+            saveConfig();
+            return;
+        }
+
+        try (FileInputStream input = new FileInputStream(configFile)) {
+            props.load(input);
+        } catch (IOException ex) {
+            System.err.println("无法加载配置文件: " + ex.getMessage());
+            initDefaultConfig();
+            saveConfig();
+        }
+    }
+    private static void createDataDirectory() {
+        File dataDir = new File(DATA_DIR);
+        if (!dataDir.exists()) {
+            boolean created = dataDir.mkdirs();
+            if (!created) {
+                System.err.println("无法创建数据目录: " + DATA_DIR);
+            } else {
+                System.out.println("成功创建数据目录: " + DATA_DIR);
+            }
         }
     }
 
@@ -36,17 +55,16 @@ public class ConfigTool {
 
     //保存配置文件
     public static void saveConfig() {
-        File configDir = new File("Config");
+        File configDir = new File(DATA_DIR);
         if (!configDir.exists()) {
-            configDir.mkdirs(); // 创建目录
+            configDir.mkdirs();
         }
 
         try (OutputStream output = new FileOutputStream(
-                "Config/" + CONFIG_FILE)) {
-            props.store(output, "tank Configuration");
+                DATA_DIR + File.separator + CONFIG_FILE)) {
+            props.store(output, "Tank War Configuration");
         } catch (IOException ex) {
-            System.err.println("无法保存配置文件");
-            ex.printStackTrace();
+            System.err.println("无法保存配置文件: " + ex.getMessage());
         }
     }
 

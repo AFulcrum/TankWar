@@ -12,6 +12,8 @@ import java.util.ArrayList;
 import java.util.Random;
 
 public class PVEMode extends JPanel implements KeyListener {
+    private int gameAreaWidth;
+    private int gameAreaHeight;
     private PlayerTank player;
     private AITank aiTank;
     private ArrayList<PVEWall> walls;
@@ -43,6 +45,19 @@ public class PVEMode extends JPanel implements KeyListener {
         addComponentListener(new ComponentAdapter() {
             @Override
             public void componentResized(ComponentEvent e) {
+                gameAreaWidth = getWidth();
+                gameAreaHeight = getHeight();
+
+                // 更新碰撞检测器的游戏区域大小
+                if (detector instanceof SimpleCollisionDetector) {
+                    ((SimpleCollisionDetector)detector).setGameAreaSize(
+                            new Dimension(gameAreaWidth, gameAreaHeight)
+                    );
+                }
+
+                // 确保坦克在新边界内
+                checkAndAdjustTankPositions();
+
                 // 重新布局时重置AI坦克
                 if (aiTank == null) {
                     spawnAITank();
@@ -81,24 +96,35 @@ public class PVEMode extends JPanel implements KeyListener {
             walls.add(new PVEWall(x, y));
         }
     }
+    private void checkAndAdjustTankPositions() {
+        // 调整玩家坦克位置
+        if (player != null) {
+            int x = Math.min(Math.max(player.getX(), 0), gameAreaWidth - player.getWidth());
+            int y = Math.min(Math.max(player.getY(), 0), gameAreaHeight - player.getHeight());
+            player.setPosition(x, y);
+        }
+
+        // 调整AI坦克位置
+        if (aiTank != null) {
+            int x = Math.min(Math.max(aiTank.getX(), 0), gameAreaWidth - aiTank.getWidth());
+            int y = Math.min(Math.max(aiTank.getY(), 0), gameAreaHeight - aiTank.getHeight());
+            aiTank.setPosition(x, y);
+        }
+    }
 
     private void spawnAITank() {
         Random rand = new Random();
-        int areaWidth = getWidth() <= 0 ? 800 : getWidth();
-        int areaHeight = getHeight() <= 0 ? 600 : getHeight();
         int margin = 100;
         int x, y;
         int attempts = 0;
         final int MAX_ATTEMPTS = 50;
 
         do {
-            x = margin + rand.nextInt(Math.max(1, areaWidth - 2 * margin));
-            y = margin + rand.nextInt(Math.max(1, areaHeight - 2 * margin));
+            x = margin + rand.nextInt(Math.max(1, gameAreaWidth - 2 * margin));
+            y = margin + rand.nextInt(Math.max(1, gameAreaHeight - 2 * margin));
             attempts++;
 
-            // 防止无限循环
             if (attempts >= MAX_ATTEMPTS) {
-                // 如果找不到合适位置，强制生成在边缘
                 x = margin;
                 y = margin;
                 break;
@@ -115,6 +141,11 @@ public class PVEMode extends JPanel implements KeyListener {
     }
     // 检查位置是否被阻挡
     private boolean isPositionBlocked(int x, int y) {
+        // 检查边界
+        if (x < 0 || y < 0 || x + 64 > gameAreaWidth || y + 64 > gameAreaHeight) {
+            return true;
+        }
+
         Rectangle newPos = new Rectangle(x, y, 64, 64);
 
         // 检查与墙体的碰撞
@@ -123,6 +154,7 @@ public class PVEMode extends JPanel implements KeyListener {
                 return true;
             }
         }
+
         // 检查与玩家的距离
         if (player != null && player.isAlive()) {
             if (distance(x, y, player.getX(), player.getY()) < RESPAWN_DISTANCE) {
@@ -218,9 +250,10 @@ public class PVEMode extends JPanel implements KeyListener {
                 if (bullet.getCollisionBounds().intersects(aiTank.getCollisionBounds())) {
                     bullet.deactivate();
                     aiTank.setAlive(false);
+                    // 在AI坦克死亡时调用学习方法
+                    aiTank.onDeath(player);
                     playerScore++;
                     ConfigTool.setOurScore(String.valueOf(playerScore));
-                    // 延迟重生AI
                     Timer respawnTimer = new Timer(800, e -> respawnTank(aiTank, player));
                     respawnTimer.setRepeats(false);
                     respawnTimer.start();

@@ -156,7 +156,8 @@ public class PlayerTank extends AbstractTank {
 
     @Override
     public void useSkill() {
-        System.out.println("使用技能");
+
+
     }
 
     @Override

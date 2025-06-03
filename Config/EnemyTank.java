@@ -17,7 +17,7 @@ public class EnemyTank extends AbstractTank {
     private final String tankPath = "/Images/TankImage/EnemyTank/tankU.gif";
     private Image tankImage;
     private final Random random = new Random();
-    private double moveSpeed = 0.5; // 移动速度
+    private double moveSpeed = 9; // 移动速度
     private double rotateStep = Math.toRadians(6); // 旋转步长，每次转动6度
     private int moveDuration = 0; // 移动持续帧数
     private int rotateDuration = 0; // 旋转持续帧数
