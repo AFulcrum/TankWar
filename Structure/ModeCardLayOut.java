@@ -307,6 +307,7 @@ public class ModeCardLayOut {
             }
         });
         pvpMode.setBorder(BorderFactory.createTitledBorder(" "));
+        pvpMode.setBackground(Color.BLACK); // 修改背景色为黑色
         // 添加组件监听器来获取实际尺寸
         pvpMode.addComponentListener(new ComponentAdapter() {
             @Override
@@ -456,6 +457,8 @@ public class ModeCardLayOut {
         panel.add(pveMode, BorderLayout.CENTER);
         panel.add(controls, BorderLayout.EAST);
         panel.add(buttonPanel, BorderLayout.SOUTH);
+
+        pveMode.setBackground(Color.BLACK); // 修改背景色为黑色
 
         return panel;
     }

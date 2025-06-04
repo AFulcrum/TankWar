@@ -77,8 +77,10 @@ public class PVPMode extends JPanel {
         repaint(); // 保证初始显示
     }
 
+    // 在updateGame方法中添加检查
     private void updateGame() {
         if (!gameRunning) return;
+
         player.updateMovement(); // 更新玩家坦克
         player.updateBullets(); // 更新玩家子弹
 

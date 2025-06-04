@@ -437,4 +437,27 @@ public class EnemyTank extends AbstractTank {
         }
         return bullets;
     }
+
+    @Override
+    protected void drawTank(Graphics g) {
+        if (tankImage != null) {
+            Graphics2D g2d = (Graphics2D) g.create();
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            int centerX = x + width / 2;
+            int centerY = y + height / 2;
+
+            g2d.translate(centerX, centerY);
+            g2d.rotate(angle);
+            g2d.drawImage(tankImage, -width / 2, -height / 2, width, height, null);
+
+            g2d.dispose();
+        }
+    }
+
+    // 替换现有的draw方法
+    @Override
+    public void draw(Graphics g) {
+        super.draw(g); // 确保调用父类的draw方法
+    }
 }

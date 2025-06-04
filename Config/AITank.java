@@ -1378,7 +1378,12 @@ public class AITank extends AbstractTank {
         
         g2d.dispose();
     }
-    
+
+    @Override
+    protected void drawTank(Graphics g) {
+
+    }
+
     /**
      * 绘制调试信息
      */

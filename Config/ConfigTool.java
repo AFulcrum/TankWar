@@ -128,4 +128,10 @@ public class ConfigTool {
         String debugMode = props.getProperty("debugMode");
         return debugMode != null && debugMode.equalsIgnoreCase("true");
     }
+
+    // 添加重置方法
+    public static void resetGameStats() {
+        setBeatNum("0");
+        saveConfig();
+    }
 }

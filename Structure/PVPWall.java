@@ -9,10 +9,11 @@ public class PVPWall {
     private int x, y;              // 墙体位置
     private int width, height;     // 墙体尺寸
     private static int DEFAULT_SIZE = 10; // 默认墙体大小
-    private static final Color WALL_COLOR = Color.BLACK;
-    private static final Color BRICK_PATTERN_COLOR = new Color(50, 50, 50); // 深灰色，用于纹理
+    // 修改墙体颜色
+    private static final Color WALL_COLOR = new Color(220, 220, 220); // 灰白色
+    private static final Color BRICK_PATTERN_COLOR = new Color(180, 180, 180); // 浅灰色，用于纹理
 
-    // 通道最小宽度要求从100px提高到150px
+    // 通道最小宽度150px
     private static final int MIN_PASSAGE_WIDTH = 150;
 
     public PVPWall(int x, int y, int width, int height) {
