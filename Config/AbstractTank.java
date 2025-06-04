@@ -128,4 +128,8 @@ public abstract class AbstractTank implements Tank {
         // 检查是否与其他物体发生碰撞
         return collisionDetector.isColliding(newX, newY, width, height);
     }
+
+    protected void setAlive(boolean b) {
+        this.alive = b;
+    }
 }

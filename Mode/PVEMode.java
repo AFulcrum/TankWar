@@ -9,6 +9,8 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Random;
 
 public class PVEMode extends JPanel implements KeyListener {
@@ -113,17 +115,55 @@ public class PVEMode extends JPanel implements KeyListener {
     }
 
     private void initWalls() {
-        Random random = new Random();
-        int wallCount = 5 + currentLevel * 2;
+        walls.clear(); // 清除已有墙体
+
+        // 获取游戏区域大小
         int areaWidth = getWidth() <= 0 ? 800 : getWidth();
         int areaHeight = getHeight() <= 0 ? 600 : getHeight();
 
-        for (int i = 0; i < wallCount; i++) {
-            int x = random.nextInt(Math.max(1, areaWidth - 40));
-            int y = random.nextInt(Math.max(1, areaHeight - 40));
-            walls.add(new PVEWall(x, y));
+        // 创建玩家和AI坦克的碰撞边界
+        Rectangle playerBounds = player != null ?
+                new Rectangle(player.getX(), player.getY(), player.getWidth(), player.getHeight()) :
+                new Rectangle(50, 50, 64, 64);
+
+        Rectangle aiBounds = aiTank != null && aiTank.isAlive() ?
+                new Rectangle(aiTank.getX(), aiTank.getY(), aiTank.getWidth(), aiTank.getHeight()) :
+                null;
+
+        // 生成墙体
+        PVEWall[] generatedWalls = PVEWall.generateWalls(areaWidth, areaHeight, playerBounds, aiBounds);
+
+        // 添加墙体到列表
+        Collections.addAll(walls, generatedWalls);
+
+        // 更新碰撞检测器
+        updateCollisionDetector();
+    }
+
+    /**
+     * 更新碰撞检测器中的墙体信息
+     */
+    private void updateCollisionDetector() {
+        if (detector instanceof SimpleCollisionDetector) {
+            SimpleCollisionDetector simpleDetector = (SimpleCollisionDetector) detector;
+
+            // 创建墙体碰撞矩形列表
+            List<Rectangle> wallBounds = new ArrayList<>();
+            for (PVEWall wall : walls) {
+                if (wall.getSegments().size() > 1) {
+                    // 对于复杂形状的墙体，添加每个段落
+                    wallBounds.addAll(wall.getSegments());
+                } else {
+                    // 对于简单墙体，添加整个边界
+                    wallBounds.add(wall.getCollisionBounds());
+                }
+            }
+
+            // 更新检测器中的墙体信息
+//            simpleDetector.setWalls(wallBounds);
         }
     }
+
     private void checkAndAdjustTankPositions() {
         // 调整玩家坦克位置
         if (player != null) {

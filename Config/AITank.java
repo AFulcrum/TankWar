@@ -5,77 +5,110 @@ import javax.swing.*;
 import java.awt.*;
 import java.io.*;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
-import java.util.Random;
 
 public class AITank extends AbstractTank {
-    // 学习参数
-    private double learningRate = 0.5;
-    private double decayFactor = 0.5;
-    private Map<String, Double> weights;
-    private Map<String, Double> playerPatterns;
-    
-    // 文件路径
-    private static final String DATA_DIR = System.getProperty("user.dir") + File.separator + "Data";
-    private static final String SAVE_FILE = "AITankData.dat";
-    
-    // 时间控制
-    private long lastActionTime;
-    private long lastPlayerPositionUpdate;
-    private static final long ACTION_DELAY = 100;
-    private static final long PATTERN_UPDATE_INTERVAL = 1000;
-    
-    // 坦克属性
-    private List<EnemyBullet> bullets;
-    private double angle = 0;
+    // 图像和方向
+    private double angle = 0; // 0表示向上，顺时针为正
+    private final String tankPath = "/Images/TankImage/EnemyTank/tankRD.gif";
     private Image tankImage;
-    private int currentSpeed = BASE_SPEED;
+    
+    // 移动和碰撞
+    private CollisionDetector detector;
+    private int currentSpeed = 2;
     private static final int BASE_SPEED = 2;
     
-    // 威胁检测距离
-    private static final double BULLET_DETECT_DISTANCE = 2500;
-    private static final double IMMEDIATE_EVADE_DISTANCE = 666;
-    private static final double CRITICAL_BULLET_DISTANCE = 66;
+    // 子弹管理
+    private List<EnemyBullet> bullets;
+    private static final int FIRE_INTERVAL = 1000; // 发射间隔1秒
+    
+    // 时间控制
+    private long lastActionTime = 0;
+    private long lastFireTime = 0;
+    private long lastPlayerPositionUpdate = 0;
+    private static final long ACTION_DELAY = 100;
+    private static final long PATTERN_UPDATE_INTERVAL = 1000;
+
+    public void setAlive(boolean b) {
+        super.setAlive(b);
+        if (!b) {
+            // AI坦克死亡时清空子弹
+            bullets.clear();
+        }
+    }
+
+    // AI行为状态
+    private enum BehaviorState {
+        NORMAL,      // 普通行为
+        ATTACKING,   // 攻击模式
+        EVADING,     // 躲避模式
+        STRATEGIC    // 策略模式
+    }
+    private BehaviorState currentBehaviorState = BehaviorState.NORMAL;
     
     // AI性格特性
     private double aggressiveness = 0.7;  // 攻击性 (0-1)
     private double intelligence = 0.6;   // 智能程度 (0-1)
     private double precision = 0.8;      // 精准度 (0-1)
     
+    // 学习系统
+    private double learningRate = 0.05;
+    private double decayFactor = 0.95;
+    private Map<String, Double> weights = new HashMap<>();
+    private Map<String, Double> playerPatterns = new HashMap<>();
+    
+    // 生涯统计
+    private int lifetimeShots = 0;
+    private int lifetimeHits = 0;
+    private int matchesPlayed = 0;
+    
+    // 文件路径
+    private static final String DATA_DIR = System.getProperty("user.dir") + File.separator + "Data";
+    private static final String SAVE_FILE = "AITankData.dat";
+    
     // 性能优化
     private final Random random = new Random();
     private int lastPlayerX = 0;
     private int lastPlayerY = 0;
-    private PlayerBullet cachedNearestBullet = null;
-    private long lastBulletCheck = 0;
     
-    // 行为状态
-    private int currentBehaviorState = BEHAVIOR_NORMAL;
-    private static final int BEHAVIOR_NORMAL = 0;
-    private static final int BEHAVIOR_ATTACKING = 1;
-    private static final int BEHAVIOR_EVADING = 2;
-    private static final int BEHAVIOR_STRATEGIC = 3;
-    private CollisionDetector detector;  // 而不是 private AbstractTank detector;
-
+    // 威胁检测距离
+    private static final double BULLET_DETECT_DISTANCE = 250;
+    private static final double IMMEDIATE_EVADE_DISTANCE = 150;
+    
+    /**
+     * AI坦克构造函数
+     */
     public AITank(int x, int y, CollisionDetector detector) {
         super(x, y, 64, 64, 1, detector);
-        createDataDirectory();
-        this.weights = loadLearnedData();
-        this.playerPatterns = new HashMap<>();
-        this.lastActionTime = System.currentTimeMillis();
-        this.lastPlayerPositionUpdate = System.currentTimeMillis();
-        this.bullets = new ArrayList<>();
-        this.angle = 0;
-        loadTankImage();
-        
-        // 添加这一行，修复detector为null的问题
         this.detector = detector;
         
-        // 根据加载的数据初始化性格特性
+        // 初始化数据和组件
+        createDataDirectory();
+        loadLearnedData();
         initializePersonality();
+        loadTankImage();
+        
+        this.bullets = new ArrayList<>();
+        this.lastActionTime = System.currentTimeMillis();
+        this.lastPlayerPositionUpdate = System.currentTimeMillis();
+    }
+    
+    /**
+     * 加载坦克图像
+     */
+    private void loadTankImage() {
+        try {
+            URL url = getClass().getResource(tankPath);
+            if (url == null) {
+                System.err.println("AI坦克图片不存在: " + tankPath);
+                return;
+            }
+            ImageIcon icon = new ImageIcon(url);
+            tankImage = icon.getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH);
+        } catch (Exception e) {
+            System.err.println("无法加载AI坦克图像: " + e.getMessage());
+        }
     }
     
     /**
@@ -86,7 +119,7 @@ public class AITank extends AbstractTank {
         this.intelligence = weights.getOrDefault("personality_intelligence", 0.6);
         this.precision = weights.getOrDefault("personality_precision", 0.8);
     }
-
+    
     /**
      * 创建数据目录
      */
@@ -99,87 +132,22 @@ public class AITank extends AbstractTank {
             }
         }
     }
-
-    /**
-     * 加载坦克图片 - 修正使用面向上的图片
-     */
-    private void loadTankImage() {
-        try {
-            // 使用面向上的图片
-            URL url = getClass().getResource("/Images/TankImage/EnemyTank/tankU.gif");
-            if (url == null) {
-                System.err.println("AI坦克图片不存在");
-                tankImage = null;
-                return;
-            }
-            ImageIcon icon = new ImageIcon(url);
-            tankImage = icon.getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH);
-        } catch (Exception e) {
-            System.err.println("无法加载AI坦克图像: " + e.getMessage());
-        }
-    }
-
-    /**
-     * 更新玩家行为模式学习
-     */
-    private void updatePlayerPatterns(PlayerTank player) {
-        long currentTime = System.currentTimeMillis();
-        if (currentTime - lastPlayerPositionUpdate < PATTERN_UPDATE_INTERVAL) return;
-
-        // 记录移动方向模式
-        String patternKey = "move_" + player.getDirection();
-        playerPatterns.merge(patternKey, 1.0, Double::sum);
-
-        // 记录射击模式
-        if (player.isShooting()) {
-            playerPatterns.merge("shoot_freq", 1.0, Double::sum);
-        }
-        
-        // 记录相对位置偏好
-        int relX = player.getX() - x;
-        int relY = player.getY() - y;
-        String posKey = "pos_" + (Math.abs(relX) > Math.abs(relY) ? 
-                                 (relX > 0 ? "right" : "left") : 
-                                 (relY > 0 ? "down" : "up"));
-        playerPatterns.merge(posKey, 1.0, Double::sum);
-        
-        // 标准化模式数据
-        normalizePatterns();
-        
-        // 更新状态
-        lastPlayerPositionUpdate = currentTime;
-        lastPlayerX = player.getX();
-        lastPlayerY = player.getY();
-    }
     
     /**
-     * 标准化玩家模式数据
-     */
-    private void normalizePatterns() {
-        double sum = playerPatterns.values().stream()
-                .mapToDouble(Double::doubleValue)
-                .sum();
-        
-        if (sum > 0) {
-            playerPatterns.replaceAll((k, v) -> v / sum);
-        }
-    }
-
-    /**
-     * 增强的AI更新方法
+     * 更新AI状态和行为
      */
     public void updateAI(PlayerTank player, int currentLevel) {
         if (!isAlive() || player == null || !player.isAlive()) return;
 
         long currentTime = System.currentTimeMillis();
         
-        // 优化1: 仅在必要时更新模式学习数据 (200ms一次)
+        // 更新玩家模式学习数据
         if (currentTime - lastPlayerPositionUpdate > 200) {
             updatePlayerPatterns(player);
             lastPlayerPositionUpdate = currentTime;
         }
 
-        // 优化2: 动态调整行为更新频率
+        // 控制AI行为更新频率
         long dynamicDelay = (long)(ACTION_DELAY * (1 - currentLevel * 0.03));
         if (currentTime - lastActionTime < dynamicDelay) {
             // 即使不执行主要行为更新，也要更新子弹
@@ -187,25 +155,27 @@ public class AITank extends AbstractTank {
             return;
         }
 
-        // 计算基本状态数据
+        // 计算基本状态
         double distance = calculateDistance(player);
         double angleToPlayer = calculateAngleToPlayer(player);
         double threatLevel = calculateThreatLevel(player);
         
-        // 根据威胁级别动态调整速度
+        // 根据威胁级别调整速度
         currentSpeed = Math.min(BASE_SPEED * 2, (int)(BASE_SPEED * (1 + threatLevel * 0.5)));
 
-        // 批量状态更新
-        updateFacingAngle(angleToPlayer, player);
+        // 决定行为状态
         decideBehaviorState(player, distance, threatLevel);
-        double levelFactor = 1 + (currentLevel * 0.15);
+        
+        // 平滑转向玩家
+        updateFacingAngle(angleToPlayer, player);
         
         // 根据状态执行行为
+        double levelFactor = 1 + (currentLevel * 0.15);
         executeBehavior(player, distance, levelFactor);
 
         // 智能射击决策
         if (shouldShoot(player, distance, angleToPlayer, levelFactor)) {
-            fire(player);  // 传入玩家参数
+            fire(player);
         }
 
         updateBullets();
@@ -217,109 +187,60 @@ public class AITank extends AbstractTank {
             learn(success, player);
         }
     }
-
-    private void executeBehavior(PlayerTank player, double distance, double levelFactor) {
-        switch (currentBehaviorState) {
-            case BEHAVIOR_NORMAL:
-                normalBehavior(player, distance, levelFactor);
-                break;
-            case BEHAVIOR_ATTACKING:
-                attackPlayer(player, distance, levelFactor);
-                break;
-            case BEHAVIOR_EVADING:
-                evadeBullets(player, levelFactor);
-                break;
-            case BEHAVIOR_STRATEGIC:
-                strategicMovement(player, levelFactor);
-                break;
-            default:
-                normalBehavior(player, distance, levelFactor);
-                break;
-        }
-    }
-
+    
     /**
-     * 判断AI表现是否良好
-     */
-    private boolean isPerformingWell(PlayerTank player) {
-        // 基于健康状态比较
-        boolean healthAdvantage = health > player.getHealth() / 100.0;
-        
-        // 基于子弹数量和位置判断
-        int activeBullets = 0;
-        for (EnemyBullet bullet : bullets) {
-            if (bullet.isActive()) activeBullets++;
-        }
-        
-        return healthAdvantage || activeBullets > 2;
-    }
-
-    /**
-     * 决定当前行为状态
+     * 决定AI的行为状态
      */
     private void decideBehaviorState(PlayerTank player, double distance, double threatLevel) {
-        // 重置缓存的最近子弹
-        long currentTime = System.currentTimeMillis();
-        if (currentTime - lastBulletCheck > 200) {
-            cachedNearestBullet = null;
-            lastBulletCheck = currentTime;
-        }
-        
         // 检查子弹威胁
         if (shouldEvadeBullets(player)) {
-            currentBehaviorState = BEHAVIOR_EVADING;
+            currentBehaviorState = BehaviorState.EVADING;
             return;
         }
         
-        // 检查生命值 - 低生命值时更保守
+        // 低生命值时更保守
         if (health < 0.4) {
-            // 生命值低时更可能躲避
             if (random.nextDouble() < 0.7) {
-                currentBehaviorState = BEHAVIOR_EVADING;
+                currentBehaviorState = BehaviorState.EVADING;
                 return;
             }
         }
         
-        // 基于距离和威胁的智能决策
+        // 基于距离和威胁的决策
         if (distance < 150) {
             // 近距离策略
             if (threatLevel > 0.7) {
-                // 高威胁时，根据性格特性决定攻击或躲避
                 double aggressiveThreshold = 0.4 + (health * 0.3);
                 currentBehaviorState = random.nextDouble() < aggressiveness * aggressiveThreshold ? 
-                                      BEHAVIOR_ATTACKING : BEHAVIOR_EVADING;
+                                      BehaviorState.ATTACKING : BehaviorState.EVADING;
             } else {
-                // 低威胁时，积极攻击
-                currentBehaviorState = BEHAVIOR_ATTACKING;
+                currentBehaviorState = BehaviorState.ATTACKING;
             }
         } else if (distance > 400) {
-            // 远距离时智能追击
-            currentBehaviorState = BEHAVIOR_ATTACKING;
+            // 远距离时追击
+            currentBehaviorState = BehaviorState.ATTACKING;
         } else {
-            // 中等距离时，选择策略行动
+            // 中等距离时
             if (random.nextDouble() < intelligence) {
-                currentBehaviorState = BEHAVIOR_STRATEGIC;
+                currentBehaviorState = BehaviorState.STRATEGIC;
             } else {
-                // 根据当前优势情况决定
                 boolean hasAdvantage = health > player.getHealth() / 100.0;
-                currentBehaviorState = hasAdvantage ? BEHAVIOR_ATTACKING : BEHAVIOR_STRATEGIC;
+                currentBehaviorState = hasAdvantage ? BehaviorState.ATTACKING : BehaviorState.STRATEGIC;
             }
         }
         
-        // 根据学习的权重微调决策
+        // 基于学习权重微调决策
         adjustBehaviorBasedOnLearning();
     }
     
     /**
-     * 根据学习数据微调行为
+     * 基于学习权重调整行为决策
      */
     private void adjustBehaviorBasedOnLearning() {
-        // 获取学习权重
         double attackWeight = weights.getOrDefault("chase", 0.5);
         double evadeWeight = weights.getOrDefault("evade", 0.5);
         double strategicWeight = weights.getOrDefault("strategic", 0.5);
         
-        // 计算加权概率
         double totalWeight = attackWeight + evadeWeight + strategicWeight;
         double attackProb = attackWeight / totalWeight;
         double evadeProb = evadeWeight / totalWeight;
@@ -328,93 +249,37 @@ public class AITank extends AbstractTank {
         if (random.nextDouble() < 0.1) {
             double rand = random.nextDouble();
             if (rand < attackProb) {
-                currentBehaviorState = BEHAVIOR_ATTACKING;
+                currentBehaviorState = BehaviorState.ATTACKING;
             } else if (rand < attackProb + evadeProb) {
-                currentBehaviorState = BEHAVIOR_EVADING;
+                currentBehaviorState = BehaviorState.EVADING;
             } else {
-                currentBehaviorState = BEHAVIOR_STRATEGIC;
+                currentBehaviorState = BehaviorState.STRATEGIC;
             }
         }
     }
     
     /**
-     * 更新面向角度 - 考虑预测和平滑转向
+     * 执行当前行为状态的行动
      */
-    private void updateFacingAngle(double targetAngle, PlayerTank player) {
-        // 根据AI精度和预测能力调整角度
-        double angleDiff = normalizeAngle(targetAngle - this.angle);
-        
-        // 智能预测移动方向
-        if (intelligence > 0.5 && player.isMoving()) {
-            // 预测玩家下一位置
-            double predictScale = 0.2 + intelligence * 0.3;
-            double dx = player.getX() - lastPlayerX;
-            double dy = player.getY() - lastPlayerY;
-            
-            // 调整目标角度加入预测
-            if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
-                double predictAngle = Math.atan2(dy, dx);
-                targetAngle = normalizeAngle(targetAngle + predictAngle * predictScale);
-            }
-        }
-        
-        // 平滑转向
-        double rotationSpeed = 0.1 + aggressiveness * 0.2;
-        
-        if (Math.abs(angleDiff) > 0.1) {
-            if (angleDiff > 0 && angleDiff <= Math.PI) {
-                this.angle += rotationSpeed;
-            } else {
-                this.angle -= rotationSpeed;
-            }
-            
-            // 保持角度在合理范围
-            this.angle = normalizeAngle(this.angle);
-        } else {
-            // 已经接近目标角度
-            this.angle = targetAngle;
-        }
-        
-        // 根据精度添加随机抖动
-        if (precision < 0.9) {
-            double jitter = (1.0 - precision) * 0.2 * (random.nextDouble() - 0.5);
-            this.angle = normalizeAngle(this.angle + jitter);
+    private void executeBehavior(PlayerTank player, double distance, double levelFactor) {
+        switch (currentBehaviorState) {
+            case NORMAL:
+                normalBehavior(player, distance, levelFactor);
+                break;
+            case ATTACKING:
+                attackPlayer(player, distance, levelFactor);
+                break;
+            case EVADING:
+                evadeBullets(player, levelFactor);
+                break;
+            case STRATEGIC:
+                strategicMovement(player, levelFactor);
+                break;
         }
     }
     
     /**
-     * 计算威胁等级
-     */
-    private double calculateThreatLevel(PlayerTank player) {
-        double threat = 0;
-
-        // 玩家距离越近威胁越大
-        double distance = calculateDistance(player);
-        threat += Math.max(0, 1 - distance / 300);
-
-        // 玩家子弹越近威胁越大
-        PlayerBullet nearestBullet = findNearestBullet(player);
-        if (nearestBullet != null) {
-            double bulletDistance = Math.sqrt(
-                Math.pow(nearestBullet.getX() - x, 2) + 
-                Math.pow(nearestBullet.getY() - y, 2)
-            );
-            
-            if (bulletDistance < 150) {
-                threat += (1 - bulletDistance / 150) * 2; // 子弹威胁权重更高
-            }
-        }
-
-        // 考虑玩家是否在射击
-        if (player.isShooting()) {
-            threat += 0.3;
-        }
-        
-        return Math.min(threat, 1.5); // 限制最大威胁级别
-    }
-    
-    /**
-     * 默认行为
+     * 普通行为模式
      */
     private void normalBehavior(PlayerTank player, double distance, double levelFactor) {
         if (distance > 300) {
@@ -431,23 +296,16 @@ public class AITank extends AbstractTank {
      */
     private void attackPlayer(PlayerTank player, double distance, double levelFactor) {
         if (distance > 200) {
-            // 使用预测追击
+            // 远距离使用预测追击
             predictiveChase(player, levelFactor * 1.2);
         } else {
-            // 近距离时，在战术距离保持并瞄准
-            double angleDiff = Math.abs(normalizeAngle(angle - calculateAngleToPlayer(player)));
-            if (angleDiff < 0.5) {
-                // 已经瞄准玩家，保持距离
-                maintainOptimalDistance(player, 150, 200, levelFactor);
-            } else {
-                // 未瞄准，先转向
-                this.angle = calculateAngleToPlayer(player);
-            }
+            // 近距离时，保持战术距离
+            maintainOptimalDistance(player, 150, 200, levelFactor);
         }
     }
     
     /**
-     * 维持最佳作战距离
+     * 保持最佳射击距离
      */
     private void maintainOptimalDistance(PlayerTank player, double minDist, double maxDist, double levelFactor) {
         double distance = calculateDistance(player);
@@ -465,19 +323,17 @@ public class AITank extends AbstractTank {
     }
     
     /**
-     * 战术移动
+     * 策略性移动
      */
     private void strategicMovement(PlayerTank player, double levelFactor) {
         double distance = calculateDistance(player);
-        
-        // 根据智能等级随机决策
         double rand = random.nextDouble();
         
         if (rand < intelligence) {
             // 智能决策 - 保持最佳射击距离
             maintainOptimalDistance(player, 150, 250, levelFactor);
         } else if (rand < intelligence + 0.3) {
-            // 侧面移动，同时保持玩家在视野内
+            // 侧面移动
             strafingMove(player, levelFactor);
         } else {
             // 随机移动
@@ -488,7 +344,7 @@ public class AITank extends AbstractTank {
             }
         }
     }
-
+    
     /**
      * 侧面移动
      */
@@ -497,7 +353,7 @@ public class AITank extends AbstractTank {
         double angleToPlayer = calculateAngleToPlayer(player);
         double perpAngle;
         
-        // 根据历史数据选择更优的侧移方向
+        // 根据权重选择侧移方向
         if (weights.getOrDefault("strafe_right", 0.5) > weights.getOrDefault("strafe_left", 0.5)) {
             perpAngle = angleToPlayer + Math.PI/2; // 向右侧移
         } else {
@@ -508,16 +364,16 @@ public class AITank extends AbstractTank {
         int newX = (int)(x + Math.cos(perpAngle) * currentSpeed * levelFactor);
         int newY = (int)(y + Math.sin(perpAngle) * currentSpeed * levelFactor);
 
-        // 检查新位置是否有效
+        // 检查新位置
         if (checkCollision(newX, newY)) {
             x = newX;
             y = newY;
             
-            // 更新权重，记录这个方向侧移有效
+            // 更新权重
             String strafeDir = perpAngle > angleToPlayer ? "strafe_right" : "strafe_left";
             weights.merge(strafeDir, 0.1, Double::sum);
         } else {
-            // 如果碰撞，则换向
+            // 碰撞，换向
             perpAngle = angleToPlayer + (perpAngle > angleToPlayer ? -Math.PI/2 : Math.PI/2);
             newX = (int)(x + Math.cos(perpAngle) * currentSpeed * levelFactor);
             newY = (int)(y + Math.sin(perpAngle) * currentSpeed * levelFactor);
@@ -526,7 +382,6 @@ public class AITank extends AbstractTank {
                 x = newX;
                 y = newY;
                 
-                // 更新权重，记录方向切换
                 String strafeDir = perpAngle > angleToPlayer ? "strafe_right" : "strafe_left";
                 weights.merge(strafeDir, 0.1, Double::sum);
             }
@@ -535,9 +390,9 @@ public class AITank extends AbstractTank {
         // 保持面向玩家
         this.angle = angleToPlayer;
     }
-
+    
     /**
-     * 躲避子弹
+     * 躲避玩家子弹
      */
     private void evadeBullets(PlayerTank player, double levelFactor) {
         PlayerBullet nearestBullet = findNearestBullet(player);
@@ -548,39 +403,40 @@ public class AITank extends AbstractTank {
             Math.pow(nearestBullet.getY() - y, 2)
         );
 
-        // 增加躲避速度倍增器
-        double evadeSpeedMultiplier = 2.0;
-        if (bulletDistance < CRITICAL_BULLET_DISTANCE) {
-            evadeSpeedMultiplier = 2.5; // 近距离时更快速躲避
+        // 增加躲避速度
+        double evadeSpeedMultiplier = 1.5;
+        if (bulletDistance < 50) {
+            evadeSpeedMultiplier = 2.0; // 近距离时更快速躲避
         }
 
         // 计算子弹到坦克的向量
         double bulletAngle = Math.atan2(nearestBullet.getY() - y, nearestBullet.getX() - x);
         
-        // 智能选择更好的躲避方向
-        double evadeAngle = bulletAngle + selectBetterEvadeDirection(nearestBullet, player);
+        // 选择垂直于子弹方向的躲避方向
+        double evadeAngle = bulletAngle + Math.PI/2;
+        if (random.nextBoolean()) {
+            evadeAngle = bulletAngle - Math.PI/2;
+        }
 
-        // 快速移动到新位置
+        // 移动到新位置
         int newX = (int)(x + Math.cos(evadeAngle) * currentSpeed * levelFactor * evadeSpeedMultiplier);
         int newY = (int)(y + Math.sin(evadeAngle) * currentSpeed * levelFactor * evadeSpeedMultiplier);
 
-        // 检查新位置是否可用
         if (checkCollision(newX, newY)) {
             x = newX;
             y = newY;
             
-            // 智能AI不会立即转向躲避方向，仍然尝试面向玩家
+            // 智能AI不会立即转向躲避方向
             if (intelligence > 0.7) {
                 // 面向玩家但略微偏向躲避方向
                 double facingAngle = calculateAngleToPlayer(player);
                 this.angle = normalizeAngle(facingAngle * 0.7 + evadeAngle * 0.3);
             } else {
-                // 低智能时直接面向躲避方向
                 this.angle = evadeAngle;
             }
         } else {
-            // 如果不能移动到新位置，尝试反向躲避
-            evadeAngle = bulletAngle - selectBetterEvadeDirection(nearestBullet, player);
+            // 反向躲避
+            evadeAngle = bulletAngle + (evadeAngle > bulletAngle ? -Math.PI : Math.PI);
             newX = (int)(x + Math.cos(evadeAngle) * currentSpeed * levelFactor * evadeSpeedMultiplier);
             newY = (int)(y + Math.sin(evadeAngle) * currentSpeed * levelFactor * evadeSpeedMultiplier);
 
@@ -599,54 +455,29 @@ public class AITank extends AbstractTank {
     }
     
     /**
-     * 选择更好的躲避方向
-     */
-    private double selectBetterEvadeDirection(PlayerBullet bullet, PlayerTank player) {
-        double leftAngle = Math.PI/2;
-        double rightAngle = -Math.PI/2;
-
-        // 计算向左和向右躲避的新位置
-        double leftX = x + Math.cos(angle + leftAngle) * 50;
-        double leftY = y + Math.sin(angle + leftAngle) * 50;
-        double rightX = x + Math.cos(angle + rightAngle) * 50;
-        double rightY = y + Math.sin(angle + rightAngle) * 50;
-
-        // 选择远离玩家的方向
-        double leftDistToPlayer = Math.sqrt(Math.pow(leftX - player.getX(), 2) + Math.pow(leftY - player.getY(), 2));
-        double rightDistToPlayer = Math.sqrt(Math.pow(rightX - player.getX(), 2) + Math.pow(rightY - player.getY(), 2));
-
-        return leftDistToPlayer > rightDistToPlayer ? leftAngle : rightAngle;
-    }
-
-    /**
-     * 判断是否需要躲避子弹
+     * 是否需要躲避子弹
      */
     private boolean shouldEvadeBullets(PlayerTank player) {
         if (!player.isShooting()) return false;
 
-        // 使用缓存的最近子弹优化性能
-        if (cachedNearestBullet == null) {
-            cachedNearestBullet = findNearestBullet(player);
-            lastBulletCheck = System.currentTimeMillis();
-        }
-        
-        if (cachedNearestBullet != null && cachedNearestBullet.isActive()) {
+        PlayerBullet nearestBullet = findNearestBullet(player);
+        if (nearestBullet != null && nearestBullet.isActive()) {
             double bulletDistance = Math.sqrt(
-                Math.pow(cachedNearestBullet.getX() - x, 2) + 
-                Math.pow(cachedNearestBullet.getY() - y, 2)
+                Math.pow(nearestBullet.getX() - x, 2) + 
+                Math.pow(nearestBullet.getY() - y, 2)
             );
 
             if (bulletDistance < BULLET_DETECT_DISTANCE) {
                 // 计算子弹方向与AI坦克的夹角
                 double bulletAngle = Math.atan2(
-                    cachedNearestBullet.getY() - y, 
-                    cachedNearestBullet.getX() - x
+                    nearestBullet.getY() - y, 
+                    nearestBullet.getX() - x
                 );
                 double angleDiff = Math.abs(normalizeAngle(angle - bulletAngle));
 
-                // 根据距离和角度判断威胁等级
-                if (bulletDistance < CRITICAL_BULLET_DISTANCE) {
-                    return true; // 跴离过近立即躲避
+                // 根据距离和角度判断威胁
+                if (bulletDistance < 50) {
+                    return true; // 距离过近立即躲避
                 }
 
                 if (bulletDistance < IMMEDIATE_EVADE_DISTANCE && angleDiff < Math.PI/3) {
@@ -661,7 +492,31 @@ public class AITank extends AbstractTank {
         }
         return false;
     }
+    
+    /**
+     * 找到最近的玩家子弹
+     */
+    private PlayerBullet findNearestBullet(PlayerTank player) {
+        PlayerBullet nearest = null;
+        double minDistance = Double.MAX_VALUE;
 
+        for (PlayerBullet bullet : player.getBullets()) {
+            if (!bullet.isActive()) continue;
+            
+            double distance = Math.sqrt(
+                Math.pow(bullet.getX() - x, 2) + 
+                Math.pow(bullet.getY() - y, 2)
+            );
+            
+            if (distance < minDistance) {
+                minDistance = distance;
+                nearest = bullet;
+            }
+        }
+
+        return nearest;
+    }
+    
     /**
      * 预测性追击
      */
@@ -701,160 +556,7 @@ public class AITank extends AbstractTank {
             }
         }
     }
-
-    /**
-     * 预测射击 - 考虑目标移动
-     */
-    private boolean shouldShoot(PlayerTank player, double distance, double angleToPlayer, double levelFactor) {
-        // 检查冷却时间
-        long currentTime = System.currentTimeMillis();
-        if (currentTime - lastActionTime < FIRE_INTERVAL) {
-            return false;
-        }
-        
-        // 基础射击概率随关卡递增
-        double baseProb = 0.3 * levelFactor;
-        
-        // 最佳射击距离范围
-        double optimalDistance = 200;
-        double distanceFactor = 1 - Math.min(1, Math.abs(distance - optimalDistance) / 300);
-        
-        // 计算角度差
-        double angleDiff = Math.abs(normalizeAngle(angle - angleToPlayer));
-        
-        // 精度因子 - 角度差越小，命中概率越高
-        double angleFactor = Math.max(0, 1 - (angleDiff / (Math.PI/2)));
-        
-        // 提前量预测 - 根据目标移动速度调整射击时机
-        if (lastPlayerX != 0 && lastPlayerY != 0) {
-            double dx = player.getX() - lastPlayerX;
-            double dy = player.getY() - lastPlayerY;
-            
-            if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
-                // 目标正在移动 - 预测射击
-                double moveSpeed = Math.sqrt(dx*dx + dy*dy);
-                double predictTime = distance / (double)EnemyBullet.DEFAULT_SPEED;
-                
-                // 智能AI会预测玩家位置
-                if (intelligence > 0.6) {
-                    double predictX = player.getX() + dx * predictTime * intelligence;
-                    double predictY = player.getY() + dy * predictTime * intelligence;
-                    
-                    // 计算预测角度
-                    double predictAngle = Math.atan2(predictY - y, predictX - x);
-                    
-                    // 如果预测角度与当前角度差异不大，提高射击概率
-                    double predictAngleDiff = Math.abs(normalizeAngle(angle - predictAngle));
-                    if (predictAngleDiff < Math.PI/8) {
-                        angleFactor *= 1.5;
-                    }
-                }
-            }
-        }
-        
-        // 综合射击概率计算
-        double shootProb = baseProb * 
-                         (0.3 + 0.3 * distanceFactor + 0.4 * angleFactor) *
-                         (0.5 + precision * 0.5) *
-                         (0.5 + aggressiveness * 0.5);
-        
-        // 额外因素调整
-        if (player.getHealth() < 30) {
-            shootProb *= 1.3; // 玩家低生命值时更积极射击
-        }
-        
-        if (health < 0.3) {
-            shootProb *= 0.7; // 自身低生命值时减少射击频率，保持隐蔽
-        }
-        
-        return random.nextDouble() < shootProb;
-    }
-
-    /**
-     * 标准化角度
-     */
-    private double normalizeAngle(double angle) {
-        angle = angle % (2 * Math.PI);
-        return angle < 0 ? angle + 2 * Math.PI : angle;
-    }
-
-    /**
-     * 更新子弹位置
-     */
-    public void updateBullets() {
-        // 移除失效的子弹
-        bullets.removeIf(bullet -> !bullet.isActive());
-
-        // 更新剩余子弹的位置
-        for (EnemyBullet bullet : bullets) {
-            bullet.updatePosition();
-        }
-    }
     
-    /**
-     * 死亡时的学习加强
-     */
-    public void onDeath(PlayerTank player) {
-        // 死亡时进行强化学习
-        double deathPenalty = -0.5; // 死亡惩罚
-        learn(false, player);
-        
-        // 额外更新权重
-        updateBasicWeights(deathPenalty * 2);
-        updatePositionBasedLearning(player, deathPenalty);
-        updatePatternRecognition(deathPenalty);
-        
-        // 动态调整性格特性
-        adjustPersonality(false);
-        
-        // 保存学习数据
-        saveLearnedData();
-    }
-    
-    /**
-     * 调整AI性格特性
-     */
-    private void adjustPersonality(boolean success) {
-        // 根据成功/失败调整性格
-        double adjustment = success ? 0.05 : -0.05;
-        
-        // 随机选择性格特性调整
-        switch (random.nextInt(3)) {
-            case 0:
-                aggressiveness = Math.max(0.1, Math.min(1.0, aggressiveness + adjustment));
-                weights.put("personality_aggressive", aggressiveness);
-                break;
-            case 1:
-                intelligence = Math.max(0.1, Math.min(1.0, intelligence + adjustment));
-                weights.put("personality_intelligence", intelligence);
-                break;
-            case 2:
-                precision = Math.max(0.1, Math.min(1.0, precision + adjustment));
-                weights.put("personality_precision", precision);
-                break;
-        }
-    }
-
-    /**
-     * 计算到玩家的角度
-     */
-    private double calculateAngleToPlayer(PlayerTank player) {
-        if (player == null) return 0;
-        double dx = player.getX() - this.x;
-        double dy = player.getY() - this.y;
-        return Math.atan2(dy, dx);
-    }
-
-    /**
-     * 计算到玩家的距离
-     */
-    private double calculateDistance(PlayerTank player) {
-        if (player == null) return 0;
-        double dx = player.getX() - this.x;
-        double dy = player.getY() - this.y;
-        return Math.sqrt(dx * dx + dy * dy);
-    }
-
     /**
      * 向玩家移动
      */
@@ -877,30 +579,11 @@ public class AITank extends AbstractTank {
             }
         }
     }
-
+    
     /**
-     * 躲避玩家
+     * 远离玩家移动
      */
     private void evadeFrom(PlayerTank player, double speedFactor) {
-        // 优先躲避子弹
-        PlayerBullet nearestBullet = findNearestBullet(player);
-        if (nearestBullet != null) {
-            double bulletAngle = Math.atan2(nearestBullet.getY() - y, nearestBullet.getX() - x);
-            // 更新角度
-            this.angle = bulletAngle + (Math.random() > 0.5 ? Math.PI/2 : -Math.PI/2);
-
-            // 使用更新后的角度移动
-            int newX = (int)(x + Math.cos(this.angle) * currentSpeed * speedFactor);
-            int newY = (int)(y + Math.sin(this.angle) * currentSpeed * speedFactor);
-
-            if (checkCollision(newX, newY)) {
-                x = newX;
-                y = newY;
-            }
-            return;
-        }
-
-        // 躲避玩家
         double dx = x - player.getX();
         double dy = y - player.getY();
         double distance = Math.sqrt(dx * dx + dy * dy);
@@ -909,9 +592,9 @@ public class AITank extends AbstractTank {
             // 更新角度
             this.angle = Math.atan2(dy, dx);
 
-            // 使用更新后的角度移动
-            int newX = (int)(x + (Math.cos(this.angle) * currentSpeed * speedFactor));
-            int newY = (int)(y + (Math.sin(this.angle) * currentSpeed * speedFactor));
+            // 使用当前角度移动
+            int newX = (int)(x + Math.cos(this.angle) * currentSpeed * speedFactor);
+            int newY = (int)(y + Math.sin(this.angle) * currentSpeed * speedFactor);
 
             if (checkCollision(newX, newY)) {
                 x = newX;
@@ -920,38 +603,6 @@ public class AITank extends AbstractTank {
         }
     }
     
-    /**
-     * 寻找最近的子弹
-     */
-    private PlayerBullet findNearestBullet(PlayerTank player) {
-        if (cachedNearestBullet != null && 
-            System.currentTimeMillis() - lastBulletCheck < 100 &&
-            cachedNearestBullet.isActive()) {
-            return cachedNearestBullet;
-        }
-        
-        PlayerBullet nearest = null;
-        double minDistance = Double.MAX_VALUE;
-
-        for (PlayerBullet bullet : player.getBullets()) {
-            if (!bullet.isActive()) continue;
-            
-            double distance = Math.sqrt(
-                Math.pow(bullet.getX() - x, 2) + 
-                Math.pow(bullet.getY() - y, 2)
-            );
-            
-            if (distance < minDistance) {
-                minDistance = distance;
-                nearest = bullet;
-            }
-        }
-
-        cachedNearestBullet = nearest;
-        lastBulletCheck = System.currentTimeMillis();
-        return nearest;
-    }
-
     /**
      * 随机移动
      */
@@ -963,28 +614,257 @@ public class AITank extends AbstractTank {
         if (checkCollision(newX, newY)) {
             x = newX;
             y = newY;
-            // 保持原角度，不改变朝向
+            // 不改变朝向
         }
     }
-
+    
     /**
-     * 学习方法
+     * 平滑转向目标角度
+     */
+    private void updateFacingAngle(double targetAngle, PlayerTank player) {
+        // 计算角度差
+        double angleDiff = normalizeAngle(targetAngle - this.angle);
+        
+        // 智能预测移动方向
+        if (intelligence > 0.5 && player.isMoving()) {
+            double predictScale = 0.2 + intelligence * 0.3;
+            double dx = player.getX() - lastPlayerX;
+            double dy = player.getY() - lastPlayerY;
+            
+            if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+                // 计算玩家移动角度和速度
+                double playerMoveAngle = Math.atan2(dy, dx);
+                double playerSpeed = Math.sqrt(dx*dx + dy*dy);
+                
+                // 预测补偿
+                predictScale = Math.min(0.15, (playerSpeed / 20.0) * (intelligence - 0.5));
+                
+                // 角度差决定补偿方向
+                angleDiff = normalizeAngle(playerMoveAngle - angle);
+                if (Math.abs(angleDiff) > Math.PI/2) {
+                    predictScale = -predictScale;
+                }
+                
+                targetAngle = normalizeAngle(targetAngle + predictScale);
+            }
+        }
+        
+        // 平滑转向
+        double rotationSpeed = 0.1 + aggressiveness * 0.2;
+        
+        if (Math.abs(angleDiff) > 0.1) {
+            if (angleDiff > 0 && angleDiff <= Math.PI) {
+                this.angle += rotationSpeed;
+            } else {
+                this.angle -= rotationSpeed;
+            }
+            
+            this.angle = normalizeAngle(this.angle);
+        } else {
+            this.angle = targetAngle;
+        }
+        
+        // 根据精度添加随机抖动
+        if (precision < 0.9) {
+            double jitter = (1.0 - precision) * 0.2 * (random.nextDouble() - 0.5);
+            this.angle = normalizeAngle(this.angle + jitter);
+        }
+    }
+    
+    /**
+     * 检查碰撞
+     */
+    public boolean checkCollision(int newX, int newY) {
+        // 边界检查
+        if (newX < 0 || newY < 0 || 
+            newX + width > 800 || newY + height > 600) {
+            return false;
+        }
+        
+        // 安全检查
+        if (detector == null) {
+            System.out.println("警告: 碰撞检测器为null，使用默认安全碰撞检测");
+            return true;
+        }
+        
+        return !detector.isColliding(newX, newY, width, height);
+    }
+    
+    /**
+     * 计算到玩家的角度
+     */
+    private double calculateAngleToPlayer(PlayerTank player) {
+        if (player == null) return 0;
+        double dx = player.getX() - this.x;
+        double dy = player.getY() - this.y;
+        return Math.atan2(dy, dx);
+    }
+    
+    /**
+     * 计算到玩家的距离
+     */
+    private double calculateDistance(PlayerTank player) {
+        if (player == null) return 0;
+        double dx = player.getX() - this.x;
+        double dy = player.getY() - this.y;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+    
+    /**
+     * 计算威胁等级
+     */
+    private double calculateThreatLevel(PlayerTank player) {
+        double threat = 0;
+
+        // 玩家距离越近威胁越大
+        double distance = calculateDistance(player);
+        threat += Math.max(0, 1 - distance / 300);
+
+        // 玩家子弹越近威胁越大
+        PlayerBullet nearestBullet = findNearestBullet(player);
+        if (nearestBullet != null) {
+            double bulletDistance = Math.sqrt(
+                Math.pow(nearestBullet.getX() - x, 2) + 
+                Math.pow(nearestBullet.getY() - y, 2)
+            );
+            
+            if (bulletDistance < 150) {
+                threat += (1 - bulletDistance / 150) * 2; // 子弹威胁权重更高
+            }
+        }
+
+        // 考虑玩家是否在射击
+        if (player.isShooting()) {
+            threat += 0.3;
+        }
+        
+        return Math.min(threat, 1.5); // 限制最大威胁级别
+    }
+    
+    /**
+     * 判断是否表现良好
+     */
+    private boolean isPerformingWell(PlayerTank player) {
+        // 基于健康状态比较
+        boolean healthAdvantage = health > player.getHealth() / 100.0;
+        
+        // 基于子弹数量和位置判断
+        int activeBullets = 0;
+        for (EnemyBullet bullet : bullets) {
+            if (bullet.isActive()) activeBullets++;
+        }
+        
+        return healthAdvantage || activeBullets > 2;
+    }
+    
+    /**
+     * 更新玩家行为模式
+     */
+    private void updatePlayerPatterns(PlayerTank player) {
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - lastPlayerPositionUpdate < PATTERN_UPDATE_INTERVAL) return;
+
+        // 记录移动方向模式
+        String patternKey = "move_" + player.getDirection();
+        playerPatterns.merge(patternKey, 1.0, Double::sum);
+
+        // 记录射击模式
+        if (player.isShooting()) {
+            playerPatterns.merge("shoot_freq", 1.0, Double::sum);
+        }
+        
+        // 记录相对位置偏好
+        int relX = player.getX() - x;
+        int relY = player.getY() - y;
+        String posKey = "pos_" + (Math.abs(relX) > Math.abs(relY) ? 
+                                 (relX > 0 ? "right" : "left") : 
+                                 (relY > 0 ? "down" : "up"));
+        playerPatterns.merge(posKey, 1.0, Double::sum);
+        
+        // 标准化模式数据
+        normalizePatterns();
+        
+        // 更新状态
+        lastPlayerPositionUpdate = currentTime;
+        lastPlayerX = player.getX();
+        lastPlayerY = player.getY();
+    }
+    
+    /**
+     * 标准化模式数据
+     */
+    private void normalizePatterns() {
+        double sum = playerPatterns.values().stream()
+                .mapToDouble(Double::doubleValue)
+                .sum();
+        
+        if (sum > 0) {
+            playerPatterns.replaceAll((k, v) -> v / sum);
+        }
+    }
+    
+    /**
+     * 是否应该射击
+     */
+    private boolean shouldShoot(PlayerTank player, double distance, double angleToPlayer, double levelFactor) {
+        // 检查冷却时间
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - lastFireTime < FIRE_INTERVAL) {
+            return false;
+        }
+
+        // 基础射击概率随关卡递增
+        double baseProb = 0.3 * levelFactor;
+
+        // 最佳射击距离范围
+        double optimalDistance = 200;
+        double distanceFactor = 1 - Math.min(1, Math.abs(distance - optimalDistance) / 300);
+
+        // 计算角度差
+        double angleDiff = Math.abs(normalizeAngle(angle - angleToPlayer));
+
+        // 精度因子 - 角度差越小，命中概率越高
+        double angleFactor = Math.max(0, 1 - (angleDiff / (Math.PI/2)));
+
+        // 从权重中获取值
+        double shootWeight = weights.getOrDefault("shoot", 0.85);
+
+        // 综合射击概率
+        double shootProb = baseProb *
+                (0.3 + 0.3 * distanceFactor + 0.4 * angleFactor) *
+                (0.5 + precision * 0.5) *
+                (0.5 + aggressiveness * 0.5) *
+                shootWeight;
+
+        // 额外因素调整
+        if (player.getHealth() < 30) {
+            shootProb *= 1.3; // 玩家低生命值时更积极射击
+        }
+
+        if (health < 0.3) {
+            shootProb *= 0.7; // 自身低生命值时减少射击频率
+        }
+
+        return random.nextDouble() < shootProb;
+    }
+    
+    /**
+     * 学习系统 - 根据成功/失败调整行为
      */
     public void learn(boolean success, PlayerTank player) {
-        // 动态调整学习率(随关卡提升)
-        double dynamicLearningRate = learningRate * (1 + ConfigTool.getLevel() * 0.5);
-
-        // 根据成功或失败调整权重
+        // 动态调整学习率
+        double dynamicLearningRate = learningRate * (1 + ConfigTool.getLevel() * 0.1);
         double adjustment = success ? dynamicLearningRate : -dynamicLearningRate * 0.5;
 
         // 更新基础行为权重
         updateBasicWeights(adjustment);
-
         // 更新基于玩家位置的学习
         updatePositionBasedLearning(player, adjustment);
-
         // 更新玩家行为模式识别
         updatePatternRecognition(adjustment);
+        
+        // 场景适应性学习
+        adaptToEnvironment(player, success);
         
         // 调整性格特性
         if (random.nextDouble() < 0.2) { // 20%概率调整性格
@@ -992,10 +872,81 @@ public class AITank extends AbstractTank {
         }
 
         normalizeWeights();
+        
+        // 定期自动保存
+        if (random.nextInt(50) == 0) { // 约2%概率保存
+            saveLearnedData();
+        }
     }
     
     /**
-     * 更新基础权重
+     * 场景适应性学习
+     */
+    private void adaptToEnvironment(PlayerTank player, boolean success) {
+        // 获取玩家和AI的空间关系
+        double distance = calculateDistance(player);
+        boolean isPlayerNearWall = isNearWall(player.getX(), player.getY(), player.getWidth(), player.getHeight());
+        boolean isAINearWall = isNearWall(x, y, width, height);
+        
+        // 基于空间关系更新权重
+        if (isPlayerNearWall && success) {
+            // 如果玩家靠近墙壁且AI成功，增强这种情况的权重
+            weights.merge("target_near_wall", 0.1, Double::sum);
+        }
+        
+        if (isAINearWall && !success) {
+            // 如果AI靠近墙壁且失败，降低这种情况的权重
+            weights.merge("avoid_wall_position", 0.1, Double::sum);
+        }
+        
+        // 基于距离学习
+        String key;
+        if (distance < 150) {
+            key = "close_combat";
+        } else if (distance < 300) {
+            key = "mid_range_combat";
+        } else {
+            key = "long_range_combat";
+        }
+        
+        double value = success ? 0.05 : -0.03;
+        weights.merge(key, value, Double::sum);
+    }
+    
+    /**
+     * 检测是否靠近墙壁
+     */
+    private boolean isNearWall(int x, int y, int width, int height) {
+        // 检测点
+        int[] probeDistances = {20, 40}; // 检测距离
+        int[][] probeDirections = {
+            {0, -1}, // 上
+            {1, 0},  // 右
+            {0, 1},  // 下
+            {-1, 0}  // 左
+        };
+        
+        // 中心点
+        int centerX = x + width/2;
+        int centerY = y + height/2;
+        
+        // 检查四个方向是否有墙
+        for (int[] dir : probeDirections) {
+            for (int dist : probeDistances) {
+                int probeX = centerX + dir[0] * dist;
+                int probeY = centerY + dir[1] * dist;
+                
+                if (detector != null && detector.isColliding(probeX-5, probeY-5, 10, 10)) {
+                    return true; // 靠近墙壁
+                }
+            }
+        }
+        
+        return false; // 不靠近墙壁
+    }
+    
+    /**
+     * 更新基础行为权重
      */
     private void updateBasicWeights(double adjustment) {
         weights.merge("chase", adjustment, (oldVal, newVal) ->
@@ -1005,7 +956,7 @@ public class AITank extends AbstractTank {
         weights.merge("shoot", adjustment, (oldVal, newVal) ->
                 oldVal * decayFactor + newVal * (1 - decayFactor));
     }
-
+    
     /**
      * 更新基于位置的学习
      */
@@ -1016,16 +967,16 @@ public class AITank extends AbstractTank {
         String posKey = "pos_" + (relX > 0 ? "R" : "L") + (relY > 0 ? "D" : "U");
         weights.merge(posKey, adjustment, Double::sum);
     }
-
+    
     /**
-     * 更新模式识别
+     * 更新玩家模式识别
      */
     private void updatePatternRecognition(double adjustment) {
         // 更新玩家模式识别权重
         playerPatterns.forEach((key, value) ->
                 weights.merge("pattern_" + key, value * adjustment, Double::sum));
     }
-
+    
     /**
      * 标准化权重
      */
@@ -1040,7 +991,31 @@ public class AITank extends AbstractTank {
         // 只标准化正值，负值保持原样
         weights.replaceAll((k, v) -> v > 0 ? v / total : v);
     }
-
+    
+    /**
+     * 调整性格特性
+     */
+    private void adjustPersonality(boolean success) {
+        // 根据成功/失败调整性格
+        double adjustment = success ? 0.05 : -0.05;
+        
+        // 随机选择性格特性调整
+        switch (random.nextInt(3)) {
+            case 0:
+                aggressiveness = Math.max(0.1, Math.min(1.0, aggressiveness + adjustment));
+                weights.put("personality_aggressive", aggressiveness);
+                break;
+            case 1:
+                intelligence = Math.max(0.1, Math.min(1.0, intelligence + adjustment));
+                weights.put("personality_intelligence", intelligence);
+                break;
+            case 2:
+                precision = Math.max(0.1, Math.min(1.0, precision + adjustment));
+                weights.put("personality_precision", precision);
+                break;
+        }
+    }
+    
     /**
      * 保存学习数据
      */
@@ -1058,23 +1033,28 @@ public class AITank extends AbstractTank {
             saveData.put("personality", new double[]{aggressiveness, intelligence, precision});
             saveData.put("level", ConfigTool.getLevel());
             saveData.put("timestamp", System.currentTimeMillis());
+            saveData.put("lifetime_shots", lifetimeShots);
+            saveData.put("lifetime_hits", lifetimeHits);
+            saveData.put("matches_played", matchesPlayed);
             
             oos.writeObject(saveData);
             System.out.println("AI数据已保存到: " + saveFile.getAbsolutePath());
         } catch (IOException e) {
             System.err.println("保存AI数据失败: " + e.getMessage());
+            e.printStackTrace();
         }
     }
-
+    
     /**
      * 加载学习数据
      */
     @SuppressWarnings("unchecked")
-    private Map<String, Double> loadLearnedData() {
+    private void loadLearnedData() {
         File file = new File(DATA_DIR, SAVE_FILE);
         if (!file.exists()) {
             System.out.println("未找到AI数据文件，创建默认权重");
-            return createDefaultWeights();
+            this.weights = createDefaultWeights();
+            return;
         }
 
         try (ObjectInputStream ois = new ObjectInputStream(
@@ -1095,27 +1075,44 @@ public class AITank extends AbstractTank {
             // 加载玩家模式数据
             if (saveData.containsKey("playerPatterns")) {
                 this.playerPatterns = (Map<String, Double>) saveData.get("playerPatterns");
+            } else {
+                this.playerPatterns = new HashMap<>();
             }
             
             // 加载权重
             if (saveData.containsKey("weights")) {
-                return (Map<String, Double>) saveData.get("weights");
+                this.weights = (Map<String, Double>) saveData.get("weights");
             } else {
                 // 为兼容旧版数据，创建一个新的Map并填充Double类型的值
-                Map<String, Double> result = new HashMap<>();
+                this.weights = new HashMap<>();
                 for (Map.Entry<String, Object> entry : saveData.entrySet()) {
                     if (entry.getValue() instanceof Number) {
-                        result.put(entry.getKey(), ((Number)entry.getValue()).doubleValue());
+                        this.weights.put(entry.getKey(), ((Number)entry.getValue()).doubleValue());
                     }
                 }
-                return result;
             }
+            
+            // 加载生涯统计
+            if (saveData.containsKey("lifetime_shots")) {
+                this.lifetimeShots = ((Number)saveData.get("lifetime_shots")).intValue();
+            }
+            
+            if (saveData.containsKey("lifetime_hits")) {
+                this.lifetimeHits = ((Number)saveData.get("lifetime_hits")).intValue();
+            }
+            
+            if (saveData.containsKey("matches_played")) {
+                this.matchesPlayed = ((Number)saveData.get("matches_played")).intValue();
+            }
+            
+            System.out.println("AI数据加载成功");
         } catch (Exception e) {
             System.err.println("加载AI数据失败: " + e.getMessage());
+            e.printStackTrace();
+            this.weights = createDefaultWeights();
         }
-        return createDefaultWeights();
     }
-
+    
     /**
      * 创建默认权重
      */
@@ -1144,118 +1141,88 @@ public class AITank extends AbstractTank {
         
         return defaults;
     }
-
-    @Override
-    public void fire() {
-
-    }
-
+    
     /**
-     * 发射子弹 - 考虑弹道扩散
+     * 更新子弹位置
      */
-    @Override
-    public void fire(PlayerTank player) {
-        long currentTime = System.currentTimeMillis();
-        if (currentTime - lastActionTime >= FIRE_INTERVAL) {
-            // 炮管位置计算
-            int barrelLength = width / 2 + 5;
-            int bulletX = (int) (x + width / 2 + Math.cos(angle) * barrelLength);
-            int bulletY = (int) (y + height / 2 + Math.sin(angle) * barrelLength);
+    public void updateBullets() {
+        // 移除失效的子弹
+        bullets.removeIf(bullet -> !bullet.isActive());
 
-            // 精度影响弹道扩散
-            double spreadFactor = (1.0 - precision) * 0.2;
-            double randomSpread = (random.nextDouble() - 0.5) * spreadFactor;
-            
-            // 智能预测
-            double predictFactor = 0;
-            if (intelligence > 0.5 && lastPlayerX != 0 && lastPlayerY != 0 && player != null) {
-                // 计算玩家移动向量
-                double dx = player.getX() - lastPlayerX;
-                double dy = player.getY() - lastPlayerY;
-                
-                // 计算预测角度
-                double playerMoveAngle = Math.atan2(dy, dx);
-                double playerSpeed = Math.sqrt(dx*dx + dy*dy);
-                
-                // 预测补偿 - 越聪明的AI补偿越准确
-                predictFactor = (playerSpeed / 20.0) * (intelligence - 0.5);
-                // 限制补偿最大值
-                predictFactor = Math.min(0.15, predictFactor);
-                
-                // 角度差决定补偿方向
-                double angleDiff = normalizeAngle(playerMoveAngle - angle);
-                if (Math.abs(angleDiff) > Math.PI/2) {
-                    predictFactor = -predictFactor;
-                }
-            }
-            
-            // 最终射击角度
-            double fireAngle = angle + randomSpread + predictFactor;
-            
-            // 创建子弹
-            EnemyBullet bullet = new EnemyBullet(bulletX, bulletY, fireAngle);
-            
-            // 添加到列表并更新时间
-            bullets.add(bullet);
-            lastActionTime = currentTime;
-        }
-    }
-
-    @Override
-    public void useSkill() {
-        // 技能实现（可扩展）
-    }
-
-    @Override
-    public int getDirection() {
-        // 根据角度返回方向
-        double normAngle = normalizeAngle(angle);
-        if (normAngle <= Math.PI/4 || normAngle > 7*Math.PI/4) return 1; // 右
-        if (normAngle > Math.PI/4 && normAngle <= 3*Math.PI/4) return 2; // 下
-        if (normAngle > 3*Math.PI/4 && normAngle <= 5*Math.PI/4) return 3; // 左
-        return 0; // 上
-    }
-
-    @Override
-    public Rectangle getCollisionBounds() {
-        return new Rectangle(x, y, width, height);
-    }
-
-    @Override
-    public void revive() {
-        this.alive = true;
-        this.health = 1; // 重置生命值
-    }
-
-    public void setAlive(boolean b) {
-        this.alive = b;
-    }
-
-    public List<EnemyBullet> getBullets() {
-        if (bullets == null) {
-            bullets = new ArrayList<>();
-        }
-        return bullets;
-    }
-
-    public void drawBullets(Graphics g) {
+        // 更新剩余子弹的位置
         for (EnemyBullet bullet : bullets) {
-            bullet.draw(g);
+            bullet.updatePosition();
         }
-    }
-    
-    @Override
-    public Image getCurrentImage() {
-        return tankImage;
-    }
-    
-    @Override
-    public double getAngle() {
-        return this.angle;
     }
     
     /**
-     * 根据玩家表现动态调整AI难度
+     * 对玩家击中注册
+     */
+    public void registerHit() {
+        lifetimeHits++;
+        
+        // 更新命中率权重
+        double hitRatio = lifetimeShots > 0 ? (double)lifetimeHits / lifetimeShots : 0;
+        weights.put("shot_accuracy", Math.min(1.0, weights.getOrDefault("shot_accuracy", 0.5) + 0.02));
+        weights.put("prediction_accuracy", Math.min(1.0, weights.getOrDefault("prediction_accuracy", 0.5) + 0.01));
+        
+        // 保存高命中率的学习数据
+        if (hitRatio > 0.4 && lifetimeShots > 20) {
+            saveLearnedData();
+        }
+    }
+    
+    /**
+     * 游戏结束时的学习
+     */
+    public void onMatchEnd(boolean victory, PlayerTank player) {
+        // 增加游戏场次计数
+        matchesPlayed++;
+        
+        // 根据胜负学习
+        learn(victory, player);
+        
+        // 强化学习 - 额外奖励/惩罚
+        double factor = victory ? 0.3 : -0.15;
+        
+        // 更新特定权重
+        weights.merge("game_sense", factor, Double::sum);
+        weights.merge("strategic", factor, Double::sum);
+        
+        // 根据命中率调整精度特性
+        double hitRatio = lifetimeShots > 0 ? (double)lifetimeHits / lifetimeShots : 0;
+        if (hitRatio > 0.4) {
+            precision = Math.min(1.0, precision + 0.02);
+        } else if (hitRatio < 0.2 && lifetimeShots > 30) {
+            precision = Math.max(0.3, precision - 0.01);
+        }
+        
+        // 保存学习数据
+        saveLearnedData();
+    }
+    
+    /**
+     * 死亡时进行学习
+     */
+    public void onDeath(PlayerTank player) {
+        // 死亡时进行强化学习
+        double deathPenalty = -0.5; // 死亡惩罚
+        learn(false, player);
+        
+        // 额外更新权重
+        updateBasicWeights(deathPenalty * 2);
+        updatePositionBasedLearning(player, deathPenalty);
+        updatePatternRecognition(deathPenalty);
+        
+        // 动态调整性格特性
+        adjustPersonality(false);
+        
+        // 保存学习数据
+        saveLearnedData();
+    }
+    
+    /**
+     * 动态难度调整
      */
     public void dynamicDifficultyAdjustment(int playerScore, int aiScore) {
         // 计算难度调整因子
@@ -1281,31 +1248,116 @@ public class AITank extends AbstractTank {
     }
     
     /**
-     * 检查碰撞并考虑边界
+     * 设置碰撞检测器
      */
-    public boolean checkCollision(int newX, int newY) {
-        // 先检查边界
-        if (newX < 0 || newY < 0 || 
-            newX + width > 800 || newY + height > 600) {
-            return false;
-        }
-        
-        // 添加安全检查
-        if (detector == null) {
-            System.out.println("警告: 碰撞检测器为null，使用默认安全碰撞检测");
-            // 默认行为：只检查边界，不检查其他碰撞
-            return true;
-        }
-        
-        // 使用碰撞检测器
-        return !detector.isColliding(newX, newY, width, height);
+    public void setDetector(CollisionDetector detector) {
+        this.detector = detector;
+    }
+    
+    // 标准化角度到0-2π范围
+    private double normalizeAngle(double angle) {
+        angle = angle % (2 * Math.PI);
+        return angle < 0 ? angle + 2 * Math.PI : angle;
+    }
+    
+    // 实现接口方法
+    @Override
+    public void fire() {
+        // 空实现，使用带玩家参数的版本
     }
 
+    @Override
+    public void fire(PlayerTank player) {
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - lastFireTime >= FIRE_INTERVAL) {
+            // 炮管位置计算
+            int barrelLength = width / 2 + 5;
+            int bulletX = (int) (x + width / 2 + Math.cos(angle) * barrelLength);
+            int bulletY = (int) (y + height / 2 + Math.sin(angle) * barrelLength);
+
+            // 精度影响弹道扩散
+            double spreadFactor = (1.0 - precision) * 0.2;
+            double randomSpread = (random.nextDouble() - 0.5) * spreadFactor;
+            
+            // 智能预测
+            double predictFactor = 0;
+            if (intelligence > 0.5 && lastPlayerX != 0 && player != null) {
+                double dx = player.getX() - lastPlayerX;
+                double dy = player.getY() - lastPlayerY;
+                
+                if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+                    // 计算玩家移动角度和速度
+                    double playerMoveAngle = Math.atan2(dy, dx);
+                    double playerSpeed = Math.sqrt(dx*dx + dy*dy);
+                    
+                    // 预测补偿
+                    predictFactor = (playerSpeed / 20.0) * (intelligence - 0.5);
+                    predictFactor = Math.min(0.15, predictFactor);
+                    
+                    // 角度差决定补偿方向
+                    double angleDiff = normalizeAngle(playerMoveAngle - angle);
+                    if (Math.abs(angleDiff) > Math.PI/2) {
+                        predictFactor = -predictFactor;
+                    }
+                }
+            }
+            
+            // 最终射击角度
+            double fireAngle = angle + randomSpread + predictFactor;
+            
+            // 创建子弹
+            EnemyBullet bullet = new EnemyBullet(bulletX, bulletY, fireAngle);
+            bullets.add(bullet);
+            lastFireTime = currentTime;
+            
+            // 更新生涯射击统计
+            lifetimeShots++;
+        }
+    }
+
+    @Override
+    public void useSkill() {
+        // 技能实现（可扩展）
+    }
+
+    @Override
+    public int getDirection() {
+        // 根据角度返回方向
+        double normAngle = normalizeAngle(angle);
+        if (normAngle >= 7*Math.PI/4 || normAngle < Math.PI/4) return 0; // 上
+        if (normAngle >= Math.PI/4 && normAngle < 3*Math.PI/4) return 1; // 右
+        if (normAngle >= 3*Math.PI/4 && normAngle < 5*Math.PI/4) return 2; // 下
+        return 3; // 左
+    }
+
+    @Override
+    public Rectangle getCollisionBounds() {
+        return new Rectangle(x, y, width, height);
+    }
+
+    @Override
+    public void revive() {
+        this.alive = true;
+        this.health = 1; // 重置生命值
+    }
+
+    @Override
+    public Image getCurrentImage() {
+        return tankImage;
+    }
+    
+    @Override
+    public double getAngle() {
+        return this.angle;
+    }
+    
+    /**
+     * 绘制坦克
+     */
     public void draw(Graphics g) {
         if (!isAlive() || tankImage == null) return;
         
         Graphics2D g2d = (Graphics2D) g.create();
-        // 开启抗锯齿
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         
         // 坦克中心点
@@ -1316,35 +1368,38 @@ public class AITank extends AbstractTank {
         g2d.translate(centerX, centerY);
         g2d.rotate(angle);
         
-        // 绘制坦克（从中心点偏移半个宽高）
+        // 绘制坦克
         g2d.drawImage(tankImage, -width / 2, -height / 2, width, height, null);
         
-        // 绘制状态指示器（仅在调试模式下）
+        // 调试模式绘制信息
         if (ConfigTool.isDebugMode()) {
             drawDebugInfo(g2d);
         }
         
         g2d.dispose();
     }
-
+    
+    /**
+     * 绘制调试信息
+     */
     private void drawDebugInfo(Graphics2D g2d) {
         // 绘制不同行为状态的视觉指示
         switch (currentBehaviorState) {
-            case BEHAVIOR_ATTACKING:
+            case ATTACKING:
                 g2d.setColor(new Color(255, 0, 0, 90));
                 g2d.fillOval(-20, -20, 40, 40);
                 break;
-            case BEHAVIOR_EVADING:
+            case EVADING:
                 g2d.setColor(new Color(0, 0, 255, 90));
                 g2d.fillOval(-20, -20, 40, 40);
                 break;
-            case BEHAVIOR_STRATEGIC:
+            case STRATEGIC:
                 g2d.setColor(new Color(0, 255, 0, 90));
                 g2d.fillOval(-20, -20, 40, 40);
                 break;
         }
         
-        // 绘制健康状态
+        // 绘制健康状态条
         int healthBarWidth = 40;
         int healthBarHeight = 5;
         g2d.setColor(Color.BLACK);
@@ -1352,9 +1407,18 @@ public class AITank extends AbstractTank {
         g2d.setColor(new Color(255, (int)(health * 255), 0));
         g2d.fillRect(-healthBarWidth/2, -height/2 - 10, (int)(healthBarWidth * health), healthBarHeight);
     }
-
+    
     /**
-     * 调试模式 - 显示AI信息
+     * 绘制子弹
+     */
+    public void drawBullets(Graphics g) {
+        for (EnemyBullet bullet : bullets) {
+            bullet.draw(g);
+        }
+    }
+    
+    /**
+     * 获取AI状态调试信息
      */
     public String getAIDebugInfo() {
         if (!ConfigTool.isDebugMode()) return "";
@@ -1365,24 +1429,29 @@ public class AITank extends AbstractTank {
         info.append("攻击性: ").append(String.format("%.2f", aggressiveness)).append("\n");
         info.append("智能: ").append(String.format("%.2f", intelligence)).append("\n");
         info.append("精度: ").append(String.format("%.2f", precision)).append("\n");
+        info.append("学习场次: ").append(matchesPlayed).append("\n");
+        info.append("命中率: ").append(lifetimeShots > 0 ? 
+                    String.format("%.2f", (double)lifetimeHits/lifetimeShots) : "N/A");
         
         return info.toString();
     }
-
+    
+    /**
+     * 获取行为状态名称
+     */
     private String getBehaviorName() {
         switch(currentBehaviorState) {
-            case BEHAVIOR_ATTACKING: return "攻击";
-            case BEHAVIOR_EVADING: return "躲避";
-            case BEHAVIOR_STRATEGIC: return "策略";
+            case ATTACKING: return "攻击";
+            case EVADING: return "躲避";
+            case STRATEGIC: return "策略";
             default: return "正常";
         }
     }
-
-
+    
     /**
-     * 设置碰撞检测器
+     * 获取子弹列表
      */
-    public void setDetector(CollisionDetector detector) {
-        this.detector = detector;
+    public List<EnemyBullet> getBullets() {
+        return bullets;
     }
 }
