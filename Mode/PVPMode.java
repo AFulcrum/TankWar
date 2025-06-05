@@ -81,6 +81,12 @@ public class PVPMode extends JPanel {
     private void updateGame() {
         if (!gameRunning) return;
 
+        // 添加玩家存活状态检查
+        if (player != null && player.getHealth() <= 0) {
+            gameOver();
+            return;
+        }
+
         player.updateMovement(); // 更新玩家坦克
         player.updateBullets(); // 更新玩家子弹
 
@@ -481,11 +487,13 @@ public class PVPMode extends JPanel {
                     if (bulletBounds != null && playerBounds != null &&
                             bulletBounds.intersects(playerBounds)) {
                         // 击中玩家坦克
-                        bullet.deactivate(); // 同样，击中坦克直接消失
+                        bullet.deactivate();
                         player.takeDamage(bullet.getDamage());
                         updateDisplays();
-                        // 检查游戏是否结束
-                        if (!player.isAlive()) {
+                        
+                        // 检查游戏是否结束 - 使用明确的生命值检查
+                        if (player.getHealth() <= 0) {
+                            System.out.println("玩家生命值为0，游戏结束");
                             gameOver();
                         }
                     }
@@ -506,11 +514,28 @@ public class PVPMode extends JPanel {
     private void gameOver() {
         gameRunning = false;
         gameTimer.stop();
-        JOptionPane.showMessageDialog(this,
-                "游戏结束！\n击败敌方坦克数: " + ConfigTool.getBeatNum(),
-                "游戏结束",
-                JOptionPane.INFORMATION_MESSAGE);
-        endGame();
+        
+        // 显示游戏结束对话框，并在用户点击确定后返回主界面
+        SwingUtilities.invokeLater(() -> {
+            JOptionPane.showMessageDialog(this,
+                    "游戏结束！\n击败敌方坦克数: " + ConfigTool.getBeatNum(),
+                    "游戏结束",
+                    JOptionPane.INFORMATION_MESSAGE);
+            
+            // 不调用stopGame()，而是使用endGame()进行清理
+            endGame();
+            
+            // 查找所属的CardLayout和主面板
+            Container parent = getParent();
+            while (parent != null && !(parent.getLayout() instanceof CardLayout)) {
+                parent = parent.getParent();
+            }
+            
+            if (parent != null) {
+                CardLayout cardLayout = (CardLayout) parent.getLayout();
+                cardLayout.show(parent, "Menu");
+            }
+        });
     }
 
     @Override
@@ -564,6 +589,10 @@ public class PVPMode extends JPanel {
     }
 
     public void startGame() {
+        // 重置游戏统计数据
+        ConfigTool.resetGameStats(); // 重置击败数为0
+        updateDisplays(); // 更新显示
+        
         gameRunning = true;
         gameTimer.start();
     }
@@ -575,8 +604,29 @@ public class PVPMode extends JPanel {
     public void endGame() {
         gameRunning = false;
         gameTimer.stop();
-        player = null;
+        // 不要将player设置为null，只需清空敌方坦克列表
+        // player = null; // 删除这行
         enemies.clear();
+    }
+
+    public void resetGame() {
+        // 清空敌人
+        enemies.clear();
+        
+        // 重置玩家坦克 - 使用新的坦克实例完全重置
+        player = new PlayerTank(50, 50, detector);
+        PlayerTank.resetHealth(); // 确保静态生命值被重置
+        
+        // 重置游戏状态
+        gameRunning = false;
+        
+        // 重新定位玩家坦克和创建敌方坦克
+        repositionPlayerTank();
+        createInitialEnemies();
+        
+        // 重置游戏统计数据
+        ConfigTool.resetGameStats();
+        updateDisplays();
     }
 
     public CollisionDetector getDetector() {

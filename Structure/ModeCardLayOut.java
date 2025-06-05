@@ -78,15 +78,20 @@ public class ModeCardLayOut {
                     case "游戏规则" -> cardLayout.show(mainPanel, "Rules");
                     case "坦克选择" -> cardLayout.show(mainPanel, "TankSelection");
                     case "坦克战争" -> {
+                        // 每次都创建新的PVP面板
                         JPanel newPvpPanel = createPVPPanel(cardLayout, mainPanel);
-                        mainPanel.remove(mainPanel.getComponent(3)); // 移除旧的PVP面板（假设顺序不变）
-                        mainPanel.add(newPvpPanel, "PVP");
+                        // 替换现有面板
+                        mainPanel.remove(3); // 移除索引为3的组件（PVP面板）
+                        mainPanel.add(newPvpPanel, "PVP", 3); // 在同一位置添加新面板
                         cardLayout.show(mainPanel, "PVP");
-                        // 让PVPMode获得焦点
-                        Component[] comps = ((JPanel)newPvpPanel).getComponents();
-                        for (Component c : comps) {
-                            if (c instanceof PVPMode pvp) {
-                                SwingUtilities.invokeLater(pvp::requestFocusInWindow);
+                        // 让新创建的PVPMode获得焦点并重置
+                        for (Component c : newPvpPanel.getComponents()) {
+                            if (c instanceof PVPMode pvpMode) {
+                                SwingUtilities.invokeLater(() -> {
+                                    pvpMode.resetGame(); // 确保游戏状态被完全重置
+                                    pvpMode.requestFocusInWindow();
+                                });
+                                break;
                             }
                         }
                     }

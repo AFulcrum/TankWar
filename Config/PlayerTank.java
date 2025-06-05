@@ -10,6 +10,7 @@ import javax.swing.*;
 public class PlayerTank extends AbstractTank {
     private final boolean[] keysPressed = new boolean[512];
     private static int health = 3; // 初始生命值
+    private static final int MAX_HEALTH = 3; // 最大生命值
     private final Image[] tankImages = new Image[2];
     private int tankType;
     private double angle = 0; // 当前朝向角度，0为向上，顺时针为正
@@ -199,6 +200,10 @@ public class PlayerTank extends AbstractTank {
         return health;
     }
 
+    // 添加重置静态生命值的方法
+    public static void resetHealth() {
+        health = MAX_HEALTH; // 恢复满血
+    }
 
     public double getAngle() {
         return angle;
