@@ -11,7 +11,7 @@ import java.util.List;
 public class AITank extends AbstractTank {
     // 图像和方向
     private double angle = 0; // 0表示向上，顺时针为正
-    private final String tankPath = "/Images/TankImage/EnemyTank/tankRD.gif";
+    private final String tankPath = "/Images/TankImage/EnemyTank/tankU.gif";
     private Image tankImage;
     
     // 移动和碰撞
@@ -27,8 +27,10 @@ public class AITank extends AbstractTank {
     private long lastActionTime = 0;
     private long lastFireTime = 0;
     private long lastPlayerPositionUpdate = 0;
+    private long lastStateChangeTime = 0;
     private static final long ACTION_DELAY = 100;
     private static final long PATTERN_UPDATE_INTERVAL = 1000;
+    private static final long STATE_CHANGE_COOLDOWN = 500; // 冷却时间，单位毫秒
 
     public void setAlive(boolean b) {
         super.setAlive(b);
@@ -46,6 +48,7 @@ public class AITank extends AbstractTank {
         STRATEGIC    // 策略模式
     }
     private BehaviorState currentBehaviorState = BehaviorState.NORMAL;
+    private BehaviorState previousState = BehaviorState.NORMAL;
     
     // AI性格特性
     private double aggressiveness = 0.7;  // 攻击性 (0-1)
@@ -92,6 +95,12 @@ public class AITank extends AbstractTank {
         this.bullets = new ArrayList<>();
         this.lastActionTime = System.currentTimeMillis();
         this.lastPlayerPositionUpdate = System.currentTimeMillis();
+        this.lastStateChangeTime = System.currentTimeMillis();
+        
+        // 增加射击权重初始值
+        if (!weights.containsKey("shoot")) {
+            weights.put("shoot", 0.9);
+        }
     }
     
     /**
@@ -192,6 +201,13 @@ public class AITank extends AbstractTank {
      * 决定AI的行为状态
      */
     private void decideBehaviorState(PlayerTank player, double distance, double threatLevel) {
+        // 添加状态持续时间跟踪
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - lastStateChangeTime < STATE_CHANGE_COOLDOWN) {
+            // 在冷却期内不改变状态，减少抽搐
+            return;
+        }
+        
         // 检查子弹威胁
         if (shouldEvadeBullets(player)) {
             currentBehaviorState = BehaviorState.EVADING;
@@ -231,6 +247,12 @@ public class AITank extends AbstractTank {
         
         // 基于学习权重微调决策
         adjustBehaviorBasedOnLearning();
+        
+        // 记录状态变化时间
+        if (previousState != currentBehaviorState) {
+            previousState = currentBehaviorState;
+            lastStateChangeTime = currentTime;
+        }
     }
     
     /**
@@ -625,23 +647,32 @@ public class AITank extends AbstractTank {
         // 计算角度差
         double angleDiff = normalizeAngle(targetAngle - this.angle);
         
+        // 设置最小角度变化阈值，避免微小角度变化导致抽搐
+        double minAngleChange = 0.02;
+        
+        // 如果角度差非常小，则直接设置为目标角度，避免抽搐
+        if (Math.abs(angleDiff) < minAngleChange) {
+            this.angle = targetAngle;
+            return;
+        }
+        
         // 智能预测移动方向
         if (intelligence > 0.5 && player.isMoving()) {
             double predictScale = 0.2 + intelligence * 0.3;
             double dx = player.getX() - lastPlayerX;
             double dy = player.getY() - lastPlayerY;
             
-            if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+            if (Math.abs(dx) > 2 || Math.abs(dy) > 2) { // 增加阈值避免微小移动导致角度变化
                 // 计算玩家移动角度和速度
                 double playerMoveAngle = Math.atan2(dy, dx);
                 double playerSpeed = Math.sqrt(dx*dx + dy*dy);
                 
-                // 预测补偿
-                predictScale = Math.min(0.15, (playerSpeed / 20.0) * (intelligence - 0.5));
+                // 限制预测补偿，避免过度转向
+                predictScale = Math.min(0.1, (playerSpeed / 20.0) * (intelligence - 0.5));
                 
                 // 角度差决定补偿方向
-                angleDiff = normalizeAngle(playerMoveAngle - angle);
-                if (Math.abs(angleDiff) > Math.PI/2) {
+                double moveAngleDiff = normalizeAngle(playerMoveAngle - angle);
+                if (Math.abs(moveAngleDiff) > Math.PI/2) {
                     predictScale = -predictScale;
                 }
                 
@@ -649,10 +680,10 @@ public class AITank extends AbstractTank {
             }
         }
         
-        // 平滑转向
-        double rotationSpeed = 0.1 + aggressiveness * 0.2;
+        // 平滑转向 - 减小旋转速度，使运动更平滑
+        double rotationSpeed = 0.05 + aggressiveness * 0.1; // 减小旋转速度
         
-        if (Math.abs(angleDiff) > 0.1) {
+        if (Math.abs(angleDiff) > minAngleChange) {
             if (angleDiff > 0 && angleDiff <= Math.PI) {
                 this.angle += rotationSpeed;
             } else {
@@ -664,9 +695,10 @@ public class AITank extends AbstractTank {
             this.angle = targetAngle;
         }
         
-        // 根据精度添加随机抖动
+        // 减少精度影响下的随机抖动
         if (precision < 0.9) {
-            double jitter = (1.0 - precision) * 0.2 * (random.nextDouble() - 0.5);
+            // 降低抖动幅度，使用更小的随机值
+            double jitter = (1.0 - precision) * 0.1 * (random.nextDouble() - 0.5);
             this.angle = normalizeAngle(this.angle + jitter);
         }
     }
@@ -813,8 +845,8 @@ public class AITank extends AbstractTank {
             return false;
         }
 
-        // 基础射击概率随关卡递增
-        double baseProb = 0.3 * levelFactor;
+        // 增加基础射击概率
+        double baseProb = 0.5 * levelFactor; // 从0.3提高到0.5
 
         // 最佳射击距离范围
         double optimalDistance = 200;
@@ -823,29 +855,30 @@ public class AITank extends AbstractTank {
         // 计算角度差
         double angleDiff = Math.abs(normalizeAngle(angle - angleToPlayer));
 
-        // 精度因子 - 角度差越小，命中概率越高
-        double angleFactor = Math.max(0, 1 - (angleDiff / (Math.PI/2)));
+        // 提高角度容忍度，增加射击机会
+        double angleFactor = Math.max(0, 1 - (angleDiff / (Math.PI/1.5))); // 增加角度容忍度
 
         // 从权重中获取值
-        double shootWeight = weights.getOrDefault("shoot", 0.85);
+        double shootWeight = weights.getOrDefault("shoot", 0.9); // 增加默认射击权重
 
         // 综合射击概率
         double shootProb = baseProb *
-                (0.3 + 0.3 * distanceFactor + 0.4 * angleFactor) *
-                (0.5 + precision * 0.5) *
-                (0.5 + aggressiveness * 0.5) *
+                (0.4 + 0.3 * distanceFactor + 0.3 * angleFactor) * // 调整各因素权重
+                (0.6 + precision * 0.4) * // 提高精度影响
+                (0.6 + aggressiveness * 0.4) * // 提高攻击性影响
                 shootWeight;
 
-        // 额外因素调整
-        if (player.getHealth() < 30) {
-            shootProb *= 1.3; // 玩家低生命值时更积极射击
+        // 提高特殊情况下的射击概率
+        if (player.getHealth() < 50) {
+            shootProb *= 1.5; // 玩家低生命值时更积极射击
         }
 
         if (health < 0.3) {
-            shootProb *= 0.7; // 自身低生命值时减少射击频率
+            shootProb *= 0.8; // 提高自身低生命值时的射击频率
         }
 
-        return random.nextDouble() < shootProb;
+        // 确保最低射击概率，防止长时间不射击
+        return random.nextDouble() < Math.max(0.3, shootProb);
     }
     
     /**
@@ -1270,16 +1303,17 @@ public class AITank extends AbstractTank {
     public void fire(PlayerTank player) {
         long currentTime = System.currentTimeMillis();
         if (currentTime - lastFireTime >= FIRE_INTERVAL) {
-            // 炮管位置计算
+            // 修正炮管位置计算 - 坦克朝上时子弹应该从顶部发射
             int barrelLength = width / 2 + 5;
-            int bulletX = (int) (x + width / 2 + Math.cos(angle) * barrelLength);
-            int bulletY = (int) (y + height / 2 + Math.sin(angle) * barrelLength);
+            // 修正计算方式 - 调整为使用正确的三角函数
+            int bulletX = (int) (x + width / 2 + Math.sin(angle) * barrelLength);
+            int bulletY = (int) (y + height / 2 - Math.cos(angle) * barrelLength);
 
             // 精度影响弹道扩散
             double spreadFactor = (1.0 - precision) * 0.2;
             double randomSpread = (random.nextDouble() - 0.5) * spreadFactor;
             
-            // 智能预测
+            // 智能预测代码保持不变
             double predictFactor = 0;
             if (intelligence > 0.5 && lastPlayerX != 0 && player != null) {
                 double dx = player.getX() - lastPlayerX;
@@ -1366,9 +1400,11 @@ public class AITank extends AbstractTank {
         
         // 变换坐标系到坦克中心
         g2d.translate(centerX, centerY);
+        
+        // 旋转 - 由于坦克图片默认朝上，角度不需要额外调整
         g2d.rotate(angle);
         
-        // 绘制坦克
+        // 绘制坦克 - 确保图片中心与旋转中心一致
         g2d.drawImage(tankImage, -width / 2, -height / 2, width, height, null);
         
         // 调试模式绘制信息

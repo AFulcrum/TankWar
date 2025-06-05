@@ -135,12 +135,11 @@ public class ModeCardLayOut {
                     ↓ - 向下移动
                     ← - 左转
                     → - 右转
-                    X - 使用技能
                     空格 - 发射子弹
                     
                     得分规则:
-                    - 击毁坦克获得分数
-                    - 率先分数达到10分时游戏结束"""
+                    - 坦克战争:击毁坦克获得分数,生命值清零结束
+                    - 人机对战:得3分进入下一关,AI得10分结束"""
         );
         rulesText.setFont(new Font("华文行楷", Font.PLAIN, 20));
         rulesText.setEditable(false);
@@ -334,7 +333,10 @@ public class ModeCardLayOut {
                         \s\s\s\s↓ - 向下移动
                         \s\s\s\s\s← - 左转
                         \s\s\s\s\s→ - 右转
-                         空格 - 发射子弹\s\s"""
+                         空格 - 发射子弹\s\s
+                         击毁坦克获得分数
+                         生命值清零结束
+                         敌方坦克血量为1"""
         );
         controls.setEditable(false);
         controls.setBackground(new Color(175, 244, 227));
@@ -426,7 +428,10 @@ public class ModeCardLayOut {
                         \s\s\s\s↓ - 向下移动
                         \s\s\s\s\s← - 左转
                         \s\s\s\s\s→ - 右转
-                         空格 - 发射子弹\s\s"""
+                         空格 - 发射子弹\s\s
+                         得3分进入下一关
+                         AI得10分结束
+                         敌方坦克血量为1"""
         );
         controls.setEditable(false);
         controls.setBackground(new Color(217, 250, 190));

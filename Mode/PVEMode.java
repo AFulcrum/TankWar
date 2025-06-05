@@ -28,7 +28,7 @@ public class PVEMode extends JPanel implements KeyListener {
     private int playerScore;
     private int enemyScore;
     private static final int SCORE_TO_WIN = 3;
-    private static final int SCORE_TO_LOSE = 3;
+    private static final int SCORE_TO_LOSE = 10; // 玩家被击中10次后游戏结束
     private static final int RESPAWN_DISTANCE = 150; // 重生时最小距离
 
     public PVEMode(CollisionDetector detector, JLabel levelLabel, JLabel scoreLabel) {
@@ -329,6 +329,7 @@ public class PVEMode extends JPanel implements KeyListener {
                 }
             }
         }
+        
         // AI子弹击中玩家
         if (aiTank != null && aiTank.isAlive() && player.isAlive()) {
             for (EnemyBullet bullet : aiTank.getBullets()) {
@@ -338,6 +339,13 @@ public class PVEMode extends JPanel implements KeyListener {
                     player.setAlive(false);
                     enemyScore++;
                     ConfigTool.setEnemyScore(String.valueOf(enemyScore));
+                    
+                    // 检查是否达到游戏结束条件（玩家被击中10次）
+                    if (enemyScore >= SCORE_TO_LOSE) { // SCORE_TO_LOSE设为10
+                        gameOver();
+                        return;
+                    }
+                    
                     // 延迟重生玩家
                     Timer respawnTimer = new Timer(800, e -> respawnTank(player, aiTank));
                     respawnTimer.setRepeats(false);
@@ -357,17 +365,40 @@ public class PVEMode extends JPanel implements KeyListener {
     }
 
     private void gameOver() {
+        // 确保只执行一次
+        if (!gameRunning) return;
+        
         gameRunning = false;
         gameTimer.stop();
-        JOptionPane.showMessageDialog(this, "游戏结束！\n我方得分: " + playerScore + "\n敌方得分: " + enemyScore,
-                "游戏结束", JOptionPane.INFORMATION_MESSAGE);
+        
+        // 先保存AI学习数据和重置游戏数据
+        if (aiTank != null) {
+            aiTank.saveLearnedData();
+        }
+        
+        // 重置游戏数据
         ConfigTool.setLevel("1");
         ConfigTool.setOurScore("0");
         ConfigTool.setEnemyScore("0");
-        currentLevel = 1;
-        playerScore = 0;
-        enemyScore = 0;
-        initGame();
+        
+        // 使用直接调用而不是invokeLater，避免事件队列问题
+        JOptionPane.showMessageDialog(this, 
+            "游戏结束！\n止步于第 " + currentLevel + " 关\n我方得分: " + playerScore + "\n敌方得分: " + enemyScore,
+            "游戏结束", JOptionPane.INFORMATION_MESSAGE);
+
+        // 使用另一个invokeLater来确保UI线程处理返回主菜单
+        SwingUtilities.invokeLater(() -> {
+            // 查找所属的CardLayout和主面板
+            Container parent = getParent();
+            while (parent != null && !(parent.getLayout() instanceof CardLayout)) {
+                parent = parent.getParent();
+            }
+            
+            if (parent != null) {
+                CardLayout cardLayout = (CardLayout) parent.getLayout();
+                cardLayout.show(parent, "Menu");
+            }
+        });
     }
 
     private void advanceToNextLevel() {
@@ -452,9 +483,12 @@ public class PVEMode extends JPanel implements KeyListener {
     public void keyTyped(KeyEvent e) {}
 
     public void startGame() {
-        gameRunning = true;
-        gameTimer.start();
-        requestFocus();
+        // 只在游戏未运行时才启动
+        if (!gameRunning) {
+            gameRunning = true;
+            gameTimer.start();
+            requestFocus();
+        }
     }
     public void stopGame() {
         gameRunning = false;
@@ -463,12 +497,41 @@ public class PVEMode extends JPanel implements KeyListener {
     public void endGame() {
         gameRunning = false;
         gameTimer.stop();
-        if (aiTank != null) aiTank.saveLearnedData();
-        player = null;
-        aiTank = null;
-        walls.clear();
+        
+        // 保存AI学习数据
+        if (aiTank != null) {
+            aiTank.saveLearnedData();
+        }
     }
     public CollisionDetector getDetector() {
         return detector;
+    }
+    public void resetGame() {
+        // 重置得分和关卡
+        currentLevel = 1;
+        playerScore = 0;
+        enemyScore = 0;
+        ConfigTool.setLevel("1");
+        ConfigTool.setOurScore("0");
+        ConfigTool.setEnemyScore("0");
+        
+        // 重置游戏状态
+        gameRunning = false;
+        
+        // 重置游戏组件
+        walls = new ArrayList<>();
+        player = new PlayerTank(50, 50, detector);
+        
+        // 重置AI坦克（保留学习数据）
+        if (aiTank != null) {
+            // 保存现有学习数据
+            aiTank.saveLearnedData();
+        }
+        
+        // 初始化游戏
+        initGame();
+        
+        // 更新显示
+        updateDisplays();
     }
 }
