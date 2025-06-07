@@ -132,11 +132,12 @@ public class PVPMode extends JPanel {
     private void repositionPlayerTank() {
         if (getWidth() <= 100 || getHeight() <= 100) return;
 
-        Random rand = new Random();
-        int playerX = rand.nextInt(Math.max(1, getWidth() - 100));
-        int playerY = rand.nextInt(Math.max(1, getHeight() - 100));
+        // 计算游戏区域的中心点
+        int centerX = getWidth() / 2 - player.getWidth() / 2;
+        int centerY = getHeight() / 2 - player.getHeight() / 2;
 
-        player.setPosition(playerX, playerY);
+        // 将玩家坦克放置在中心位置
+        player.setPosition(centerX, centerY);
     }
 
     // 创建初始敌方坦克
