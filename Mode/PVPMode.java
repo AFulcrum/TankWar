@@ -7,6 +7,7 @@ import Structure.PVPWall;
 import java.awt.*;
 import java.awt.event.*;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 import javax.swing.*;
 
@@ -19,6 +20,7 @@ public class PVPMode extends JPanel {
     private java.util.List<PVPWall> PVPWalls = new ArrayList<>(); // 添加墙体列表
     private JLabel beatNumLabel;
     private JLabel healthLabel;
+    private List<EnemyBullet> orphanedBullets = new ArrayList<>(); // 孤立子弹列表
 
 
     public PVPMode(CollisionDetector collisionDetector, JLabel beatLabel, JLabel healthLabel) {
@@ -95,12 +97,32 @@ public class PVPMode extends JPanel {
             enemy.update();      // 更新敌方坦克(包括移动和射击)
             enemy.updateBullets(); // 更新敌方子弹
         }
-        // 检查子弹与墙体/边界的碰撞（新增）
+        
+        // 更新孤儿子弹
+        for (int i = orphanedBullets.size() - 1; i >= 0; i--) {
+            EnemyBullet bullet = orphanedBullets.get(i);
+            bullet.updatePosition();
+            
+            // 检查是否已失活或超出边界
+            if (!bullet.isActive() || isOutOfBounds(bullet)) {
+                orphanedBullets.remove(i);
+            }
+        }
+        
+        // 检查子弹与墙体/边界的碰撞
         checkBulletWallCollisions();
         // 检查子弹与坦克的碰撞
         checkBulletCollisions();
 
         repaint();
+    }
+
+    // 添加边界检查方法
+    private boolean isOutOfBounds(EnemyBullet bullet) {
+        Rectangle bounds = bullet.getCollisionBounds();
+        if (bounds == null) return true;
+        return bounds.x < 0 || bounds.y < 0 ||
+               bounds.x > getWidth() || bounds.y > getHeight();
     }
 
     // 重新定位玩家坦克到随机位置
@@ -386,6 +408,66 @@ public class PVPMode extends JPanel {
                 }
             }
         }
+
+        // 处理孤儿子弹与墙体的碰撞
+        for (EnemyBullet bullet : orphanedBullets) {
+            if (!bullet.isActive()) continue;
+
+            Rectangle bulletBounds = bullet.getCollisionBounds();
+            if (bulletBounds == null) continue;
+
+            // 获取子弹当前方向
+            double angle = bullet.getAngle();
+            double dx = Math.sin(angle);
+            double dy = -Math.cos(angle);
+
+            // 预测下一位置
+            Rectangle nextBulletPos = new Rectangle(
+                    bulletBounds.x + (int)(dx * 3),
+                    bulletBounds.y - (int)(dy * 3),
+                    bulletBounds.width,
+                    bulletBounds.height
+            );
+
+            boolean hitWall = false;
+            boolean isHorizontalCollision = false;
+
+            // 检查墙体碰撞
+            for (PVPWall wall : PVPWalls) {
+                Rectangle wallBounds = wall.getCollisionBounds();
+                if (bulletBounds.intersects(wallBounds) || nextBulletPos.intersects(wallBounds)) {
+                    hitWall = true;
+                    // 确定碰撞方向
+                    if (Math.abs(dx) > Math.abs(dy)) {
+                        isHorizontalCollision = true;
+                    }
+                    break;
+                }
+            }
+
+            // 检查边界碰撞
+            if (!hitWall) {
+                int gameWidth = getWidth();
+                int gameHeight = getHeight();
+
+                if (bulletBounds.x <= 0 || bulletBounds.x + bulletBounds.width >= gameWidth) {
+                    hitWall = true;
+                    isHorizontalCollision = true;
+                } else if (bulletBounds.y <= 0 || bulletBounds.y + bulletBounds.height >= gameHeight) {
+                    hitWall = true;
+                    isHorizontalCollision = false;
+                }
+            }
+
+            // 处理碰撞结果
+            if (hitWall) {
+                if (bullet.canBounce()) {
+                    handleEnemyBulletBounce(bullet, isHorizontalCollision);
+                } else {
+                    bullet.deactivate();
+                }
+            }
+        }
     }
     // 处理子弹反弹的辅助方法
     private void handleBulletBounce(PlayerBullet bullet, boolean isHorizontalCollision) {
@@ -448,6 +530,18 @@ public class PVPMode extends JPanel {
 
                         if (enemyBounds != null && bulletBounds.intersects(enemyBounds)) {
                             bullet.deactivate(); // 击中坦克直接消失，不反弹
+                            
+
+                            // 在坦克死亡前，保存它的子弹到孤儿子弹列表
+                            List<EnemyBullet> activeBullets = new ArrayList<>(enemy.getBullets());
+                            orphanedBullets.addAll(activeBullets);
+                            
+
+                            // 清空坦克的子弹列表，防止重复
+                            enemy.getBullets().clear();
+                            
+
+                            // 然后再处理坦克伤害
                             enemy.takeDamage(bullet.getDamage());
 
                             if (!enemy.isAlive()) {
@@ -586,6 +680,11 @@ public class PVPMode extends JPanel {
         for (EnemyTank enemy : enemies) {
             enemy.drawBullets(g);
         }
+        
+        // 绘制孤儿子弹
+        for (EnemyBullet bullet : orphanedBullets) {
+            bullet.draw(g);
+        }
     }
 
     public void startGame() {
@@ -624,6 +723,9 @@ public class PVPMode extends JPanel {
         repositionPlayerTank();
         createInitialEnemies();
         
+        // 清空孤儿子弹列表
+        orphanedBullets.clear();
+
         // 重置游戏统计数据
         ConfigTool.resetGameStats();
         updateDisplays();

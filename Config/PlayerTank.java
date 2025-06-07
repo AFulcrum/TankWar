@@ -258,4 +258,22 @@ public class PlayerTank extends AbstractTank {
     public void draw(Graphics g) {
         super.draw(g); // 确保调用父类的draw方法
     }
+
+    // Add this method to stop the tank's movement
+    public void stopMoving() {
+        // Implementation depends on how movement is handled.
+        // For example, if you have a direction or velocity field, reset it here.
+        isMoving = false;
+    }
+
+    public void moveRight() {
+        // Example implementation: move the tank to the right by a fixed speed
+        setPosition(getX() + speed, getY());
+    }
+
+    public void moveLeft() {
+        // Implement the logic to move the tank left
+        // For example:
+        setPosition(getX() - speed, getY());
+    }
 }
