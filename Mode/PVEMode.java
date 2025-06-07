@@ -257,6 +257,11 @@ public class PVEMode extends JPanel implements KeyListener {
 
         tank.setPosition(x, y);
         tank.revive();
+        
+        // 如果是玩家坦克，重置其键盘状态
+        if (tank instanceof PlayerTank) {
+            ((PlayerTank)tank).resetKeyStates();
+        }
     }
 
     private double distance(int x1, int y1, int x2, int y2) {
@@ -340,6 +345,10 @@ public class PVEMode extends JPanel implements KeyListener {
                 if (bullet.getCollisionBounds().intersects(player.getCollisionBounds())) {
                     bullet.deactivate();
                     player.setAlive(false);
+                    
+                    // 重置玩家坦克的键盘状态
+                    player.resetKeyStates();
+                    
                     enemyScore++;
                     ConfigTool.setEnemyScore(String.valueOf(enemyScore));
                     

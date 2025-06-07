@@ -192,7 +192,14 @@ public class PlayerTank extends AbstractTank {
 
     @Override
     public boolean isAlive() { return alive; }
-    public void setAlive(boolean alive) { this.alive = alive; }
+    public void setAlive(boolean alive) { 
+        this.alive = alive; 
+        
+        // 如果设置为死亡状态，重置键盘状态
+        if (!alive) {
+            resetKeyStates();
+        }
+    }
     public void revive() { this.alive = true; health = 3; } // 重置生命值
 
 
@@ -282,5 +289,19 @@ public class PlayerTank extends AbstractTank {
         // Implement the logic to move the tank left
         // For example:
         setPosition(getX() - speed, getY());
+    }
+
+    // 在PlayerTank.java中添加重置键盘状态的方法
+    public void resetKeyStates() {
+        // 重置所有按键状态
+        for (int i = 0; i < keysPressed.length; i++) {
+            keysPressed[i] = false;
+        }
+        // 重置特殊状态
+        spaceKeyPressed = false;
+        isMoving = false;
+        
+        // 确保旋转和移动停止
+        updateMovement();
     }
 }
