@@ -417,7 +417,34 @@ public class EnemyTank extends AbstractTank {
 
     @Override
     public void takeDamage(int damage) {
-        alive = false;
+        if (alive && health > 0) {
+            health -= damage;
+
+            if (health <= 0) {
+                // 保存当前位置用于爆炸效果
+                final int explosionX = x + width / 2;
+                final int explosionY = y + height / 2;
+                final int explosionSize = Math.max(width, height) * 2;
+
+                // 记录子弹并转移到孤儿子弹列表
+                List<EnemyBullet> activeBullets = new ArrayList<>(bullets);
+                bullets.clear();
+
+                // 将子弹添加到PVPMode或PVEMode的孤儿子弹列表中
+                if (bullets != null && !bullets.isEmpty()) {
+                    // 在Mode类中需要提供一个添加孤儿子弹的方法
+                    // 例如: pvpMode.addOrphanedBullets(activeBullets);
+                }
+
+                // 标记为死亡
+                alive = false;
+
+                // 创建爆炸效果
+                ExplosionManager.getInstance().createExplosion(explosionX, explosionY, explosionSize);
+
+                System.out.println("坦克被击毁，触发爆炸效果 at " + explosionX + "," + explosionY);
+            }
+        }
     }
 
     @Override
@@ -459,5 +486,11 @@ public class EnemyTank extends AbstractTank {
     @Override
     public void draw(Graphics g) {
         super.draw(g); // 确保调用父类的draw方法
+
+        // 只有在坦克存活时才绘制坦克图像和子弹
+        if (isAlive()) {
+            // 绘制子弹
+            drawBullets(g);
+        }
     }
 }

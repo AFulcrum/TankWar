@@ -8,6 +8,7 @@ import java.awt.*;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.io.File;
 
 public abstract class AbstractTank implements Tank {
     protected CollisionDetector collisionDetector;
@@ -47,34 +48,44 @@ public abstract class AbstractTank implements Tank {
         try {
             explosionFrames = new ArrayList<>();
             
-            // 尝试多种可能的路径
+            // 使用更明确的路径
             URL url = getClass().getResource("/Images/explotion.gif");
-            if (url == null) url = getClass().getResource("/Images/explosion.gif");
-            if (url == null) url = getClass().getResource("Images/explotion.gif");
-            if (url == null) url = getClass().getResource("Images/explosion.gif");
+            System.out.println("尝试加载爆炸图片: " + url);
             
-            // 尝试从文件系统加载
+            // 如果资源路径加载失败，尝试绝对路径
             if (url == null) {
-                try {
-                    url = new java.io.File("Images/explotion.gif").toURI().toURL();
-                    if (url == null) url = new java.io.File("Images/explosion.gif").toURI().toURL();
-                } catch (Exception e) {
-                    System.err.println("尝试从文件系统加载失败: " + e.getMessage());
+                String projectDir = System.getProperty("user.dir");
+                File file = new File(projectDir + "/src/Images/explotion.gif");
+                if (file.exists()) {
+                    url = file.toURI().toURL();
+                    System.out.println("使用绝对路径加载: " + file.getAbsolutePath());
+                } else {
+                    System.err.println("文件不存在: " + file.getAbsolutePath());
                 }
             }
-            
-            System.out.println("最终爆炸图片路径: " + url);
             
             if (url == null) {
                 System.err.println("爆炸效果图片不存在，所有路径都已尝试");
                 return;
             }
             
-            // 加载GIF
+            // 加载GIF并存储每一帧
             ImageIcon icon = new ImageIcon(url);
             Image explosionImage = icon.getImage();
-            explosionFrames.add(explosionImage.getScaledInstance(width + 30, height + 30, Image.SCALE_SMOOTH));
-            System.out.println("爆炸图片加载成功，尺寸: " + (width+30) + "x" + (height+30));
+            
+            // 确保图像已完全加载
+            MediaTracker tracker = new MediaTracker(new JPanel());
+            tracker.addImage(explosionImage, 0);
+            try {
+                tracker.waitForID(0);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            
+            // 添加图像
+            explosionFrames.add(explosionImage);
+            
+            System.out.println("爆炸图片加载成功，尺寸: " + explosionImage.getWidth(null) + "x" + explosionImage.getHeight(null));
         } catch (Exception e) {
             System.err.println("无法加载爆炸效果图像: " + e.getMessage());
             e.printStackTrace();
@@ -158,8 +169,13 @@ public abstract class AbstractTank implements Tank {
         if (health <= 0) {
             System.out.println("坦克被击毁，触发爆炸效果");
             alive = false;
-            // 触发爆炸效果
-            startExplosion();
+            
+            // 创建爆炸效果 - 使用新的爆炸管理器
+            int centerX = x + width / 2;
+            int centerY = y + height / 2;
+            int explosionSize = Math.max(width, height) * 2; // 爆炸尺寸是坦克的2倍
+            
+            ExplosionManager.getInstance().createExplosion(centerX, centerY, explosionSize);
         }
     }
 
@@ -184,8 +200,8 @@ public abstract class AbstractTank implements Tank {
     protected void updateExplosion() {
         if (exploding && explosionFrames != null && !explosionFrames.isEmpty()) {
             long currentTime = System.currentTimeMillis();
-            // 爆炸持续0.8秒
-            if (currentTime - lastFrameTime > 800) {
+            // 延长爆炸持续时间从0.8秒到1.5秒
+            if (currentTime - lastFrameTime > 1500) {
                 System.out.println("爆炸效果结束");
                 exploding = false; // 结束爆炸效果
             }
@@ -197,11 +213,28 @@ public abstract class AbstractTank implements Tank {
         if (exploding && explosionFrames != null && !explosionFrames.isEmpty()) {
             // 增大爆炸尺寸使其更明显
             Image explosionImage = explosionFrames.get(0);
-            int drawX = x - 15; // 增大偏移
-            int drawY = y - 15; // 增大偏移
-            int drawWidth = width + 130; // 增大宽度
-            int drawHeight = height + 130; // 增大高度
-            g.drawImage(explosionImage, drawX, drawY, drawWidth, drawHeight, null);
+            
+            // 计算爆炸效果的绘制位置和尺寸
+            int drawX = x - width/2; // 居中
+            int drawY = y - height/2; // 居中
+            int drawWidth = width * 2; // 双倍大小
+            int drawHeight = height * 2; // 双倍大小
+            
+            // 使用Graphics2D以便添加更多视觉效果
+            Graphics2D g2d = (Graphics2D) g.create();
+            
+            // 添加半透明效果
+            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.8f));
+            
+            // 绘制爆炸图像
+            g2d.drawImage(explosionImage, drawX, drawY, drawWidth, drawHeight, null);
+            
+            // 添加红色闪光效果
+            g2d.setColor(new Color(255, 50, 50, 100));
+            g2d.fillOval(drawX, drawY, drawWidth, drawHeight);
+            
+            g2d.dispose();
+            
             System.out.println("绘制爆炸效果，位置: " + drawX + "," + drawY);
         }
     }

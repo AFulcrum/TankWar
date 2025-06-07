@@ -114,6 +114,9 @@ public class PVPMode extends JPanel {
         // 检查子弹与坦克的碰撞
         checkBulletCollisions();
 
+        // 更新爆炸效果
+        ExplosionManager.getInstance().update();
+        
         repaint();
     }
 
@@ -635,56 +638,29 @@ public class PVPMode extends JPanel {
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-        // 清空背景
-        g.setColor(getBackground());
-        g.fillRect(0, 0, getWidth(), getHeight());
-
+        
         // 绘制墙体
-        for (PVPWall PVPWall : PVPWalls) {
-            PVPWall.draw(g);
+        for (PVPWall wall : PVPWalls) {
+            wall.draw(g);
         }
-
-        // 绘制玩家坦克
-        if (player.getCurrentImage() != null) {
-            Graphics2D g2d = (Graphics2D) g.create();
-            int px = player.getX();
-            int py = player.getY();
-            int pw = player.getWidth();
-            int ph = player.getHeight();
-            double angle = player.getAngle();
-            // 以坦克中心为旋转中心
-            g2d.translate(px + pw / 2, py + ph / 2);
-            g2d.rotate(angle);
-            g2d.drawImage(player.getCurrentImage(), -pw / 2, -ph / 2, pw, ph, null);
-            g2d.dispose();
+        
+        // 直接调用坦克的draw方法，而不是自己实现绘制逻辑
+        if (player != null) {
+            player.draw(g);
         }
 
         // 绘制所有敌方坦克
         for (EnemyTank enemy : enemies) {
-            if (enemy.isAlive() && enemy.getTankImage() != null) {
-                Graphics2D g2d = (Graphics2D) g.create();
-                int ex = enemy.getX();
-                int ey = enemy.getY();
-                int ew = enemy.getWidth();
-                int eh = enemy.getHeight();
-                double angle = enemy.getAngle();
-                g2d.translate(ex + ew / 2, ey + eh / 2);
-                g2d.rotate(angle);
-                g2d.drawImage(enemy.getTankImage(), -ew / 2, -eh / 2, ew, eh, null);
-                g2d.dispose();
-            }
-        }
-
-        // 绘制子弹
-        player.drawBullets(g);
-        for (EnemyTank enemy : enemies) {
-            enemy.drawBullets(g);
+            enemy.draw(g);
         }
         
         // 绘制孤儿子弹
         for (EnemyBullet bullet : orphanedBullets) {
             bullet.draw(g);
         }
+        
+        // 最后绘制爆炸效果（最高优先级）
+        ExplosionManager.getInstance().draw(g);
     }
 
     public void startGame() {

@@ -282,6 +282,9 @@ public class PVEMode extends JPanel implements KeyListener {
 
         // 添加墙体碰撞检测
         checkBulletWallCollisions();
+
+        // 更新爆炸效果
+        ExplosionManager.getInstance().update();
     }
     // 新增墙体碰撞检测方法
     private void checkBulletWallCollisions() {
@@ -433,27 +436,23 @@ public class PVEMode extends JPanel implements KeyListener {
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
+        
+        // 绘制墙体
         for (PVEWall wall : walls) {
             wall.draw(g);
         }
-        // 绘制玩家
-        if (player != null && player.isAlive() && player.getCurrentImage() != null) {
-            Graphics2D g2d = (Graphics2D) g.create();
-            drawTank(g2d, player);
-            player.drawBullets(g);
-            g2d.dispose();
+        
+        // 绘制坦克
+        if (player != null) {
+            player.draw(g);
         }
-        // 绘制AI
-        if (aiTank != null && aiTank.isAlive() && aiTank.getCurrentImage() != null) {
-            Graphics2D g2d = (Graphics2D) g.create();
-            drawTank(g2d, aiTank);
-            aiTank.drawBullets(g);
-            g2d.dispose();
-        }
-        player.drawBullets(g);
+        
         if (aiTank != null) {
-            aiTank.drawBullets(g);
+            aiTank.draw(g);
         }
+        
+        // 最后绘制爆炸效果（最高优先级）
+        ExplosionManager.getInstance().draw(g);
     }
 
     private void drawTank(Graphics2D g2d, AbstractTank tank) {

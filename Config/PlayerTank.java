@@ -256,7 +256,14 @@ public class PlayerTank extends AbstractTank {
     // 替换现有的draw方法
     @Override
     public void draw(Graphics g) {
-        super.draw(g); // 确保调用父类的draw方法
+        // 确保调用父类的draw方法来绘制爆炸效果
+        super.draw(g);
+        
+        // 只有在坦克存活时才绘制坦克图像和子弹
+        if (isAlive()) {
+            // 绘制子弹
+            drawBullets(g);
+        }
     }
 
     // Add this method to stop the tank's movement
