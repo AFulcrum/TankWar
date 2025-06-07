@@ -286,21 +286,22 @@ public class PVEWall {
     }
     
     /**
-     * 添加围墙
+     * 添加围墙 - 修复边界不覆盖整个游戏区域的问题
      */
     private static void addBoundaryWalls(List<PVEWall> walls, int width, int height) {
         int wallThickness = 20;
         
-        // 上边界
+        // 确保墙体完全覆盖边界，不留缝隙
+        // 上边界 - 完全覆盖顶部
         walls.add(new PVEWall(0, 0, width, wallThickness));
         
-        // 下边界
+        // 下边界 - 完全覆盖底部
         walls.add(new PVEWall(0, height - wallThickness, width, wallThickness));
         
-        // 左边界
+        // 左边界 - 完全覆盖左侧（包括角落）
         walls.add(new PVEWall(0, 0, wallThickness, height));
         
-        // 右边界
+        // 右边界 - 完全覆盖右侧（包括角落）
         walls.add(new PVEWall(width - wallThickness, 0, wallThickness, height));
     }
 
@@ -326,5 +327,9 @@ public class PVEWall {
                 g.drawRect(segment.x, segment.y, segment.width, segment.height);
             }
         }
+    }
+
+    public boolean isSolid() {
+        return isSolid;
     }
 }

@@ -47,8 +47,11 @@ public class PVEMode extends JPanel implements KeyListener {
         addComponentListener(new ComponentAdapter() {
             @Override
             public void componentResized(ComponentEvent e) {
+                // 更新游戏区域尺寸
                 gameAreaWidth = getWidth();
                 gameAreaHeight = getHeight();
+                
+                System.out.println("窗口大小变化: " + gameAreaWidth + "x" + gameAreaHeight);
 
                 // 更新碰撞检测器的游戏区域大小
                 if (detector instanceof SimpleCollisionDetector) {
@@ -59,7 +62,12 @@ public class PVEMode extends JPanel implements KeyListener {
 
                 // 确保坦克在新边界内
                 checkAndAdjustTankPositions();
-
+                
+                // 当窗口大小变化时重新初始化墙体
+                if (gameRunning && walls != null) {
+                    // 强制重新生成适合新尺寸的墙体
+                    initWalls();
+                }
             }
         });
 
@@ -76,7 +84,25 @@ public class PVEMode extends JPanel implements KeyListener {
     private void initGame() {
         walls = new ArrayList<>();
         player = new PlayerTank(50, 50, detector);
-        initWalls();
+        
+        // 检查游戏区域尺寸是否有效
+        gameAreaWidth = getWidth();
+        gameAreaHeight = getHeight();
+        
+        // 如果尺寸无效（窗口尚未布局完成），使用默认值
+        if (gameAreaWidth <= 0) gameAreaWidth = 800;
+        if (gameAreaHeight <= 0) gameAreaHeight = 600;
+        
+        // 更新碰撞检测器中的游戏区域大小
+        if (detector instanceof SimpleCollisionDetector) {
+            ((SimpleCollisionDetector)detector).setGameAreaSize(
+                    new Dimension(gameAreaWidth, gameAreaHeight)
+            );
+        }
+        
+        // 在这里先不初始化墙体，等到实际开始游戏时再初始化
+        // 只创建玩家和AI坦克
+        
         // 只在第一次初始化AI坦克
         if (aiTank == null) {
             spawnAITank();
@@ -117,10 +143,16 @@ public class PVEMode extends JPanel implements KeyListener {
     private void initWalls() {
         walls.clear(); // 清除已有墙体
 
-        // 获取游戏区域大小
-        int areaWidth = getWidth() <= 0 ? 800 : getWidth();
-        int areaHeight = getHeight() <= 0 ? 600 : getHeight();
+        // 获取游戏区域大小 - 确保使用正确的尺寸
+        int areaWidth = getWidth();
+        int areaHeight = getHeight();
+        
+        // 如果尺寸无效，使用默认值，但确保这些值足够大
+        if (areaWidth <= 0) areaWidth = 800;
+        if (areaHeight <= 0) areaHeight = 600;
 
+        System.out.println("初始化墙体，游戏区域大小: " + areaWidth + "x" + areaHeight);
+        
         // 创建玩家和AI坦克的碰撞边界
         Rectangle playerBounds = player != null ?
                 new Rectangle(player.getX(), player.getY(), player.getWidth(), player.getHeight()) :
@@ -147,20 +179,11 @@ public class PVEMode extends JPanel implements KeyListener {
         if (detector instanceof SimpleCollisionDetector) {
             SimpleCollisionDetector simpleDetector = (SimpleCollisionDetector) detector;
 
-            // 创建墙体碰撞矩形列表
-            List<Rectangle> wallBounds = new ArrayList<>();
-            for (PVEWall wall : walls) {
-                if (wall.getSegments().size() > 1) {
-                    // 对于复杂形状的墙体，添加每个段落
-                    wallBounds.addAll(wall.getSegments());
-                } else {
-                    // 对于简单墙体，添加整个边界
-                    wallBounds.add(wall.getCollisionBounds());
-                }
-            }
-
-            // 更新检测器中的墙体信息
-//            simpleDetector.setWalls(wallBounds);
+            // 更新游戏区域大小
+            simpleDetector.setGameAreaSize(new Dimension(gameAreaWidth, gameAreaHeight));
+            
+            // 更新PVEWall信息
+            simpleDetector.setPVEWalls(walls);
         }
     }
 
@@ -169,14 +192,22 @@ public class PVEMode extends JPanel implements KeyListener {
         if (player != null) {
             int x = Math.min(Math.max(player.getX(), 0), gameAreaWidth - player.getWidth());
             int y = Math.min(Math.max(player.getY(), 0), gameAreaHeight - player.getHeight());
-            player.setPosition(x, y);
+            
+            // 只有当坦克真的超出边界时才移动它
+            if (x != player.getX() || y != player.getY()) {
+                player.setPosition(x, y);
+            }
         }
 
         // 调整AI坦克位置
         if (aiTank != null) {
             int x = Math.min(Math.max(aiTank.getX(), 0), gameAreaWidth - aiTank.getWidth());
             int y = Math.min(Math.max(aiTank.getY(), 0), gameAreaHeight - aiTank.getHeight());
-            aiTank.setPosition(x, y);
+            
+            // 只有当坦克真的超出边界时才移动它
+            if (x != aiTank.getX() || y != aiTank.getY()) {
+                aiTank.setPosition(x, y);
+            }
         }
     }
 
@@ -219,13 +250,6 @@ public class PVEMode extends JPanel implements KeyListener {
         // 检查与墙体的碰撞
         for (PVEWall wall : walls) {
             if (newPos.intersects(wall.getCollisionBounds())) {
-                return true;
-            }
-        }
-
-        // 检查与玩家的距离
-        if (player != null && player.isAlive()) {
-            if (distance(x, y, player.getX(), player.getY()) < RESPAWN_DISTANCE) {
                 return true;
             }
         }
@@ -366,6 +390,39 @@ public class PVEMode extends JPanel implements KeyListener {
                 }
             }
         }
+        
+        // 新增：直接碰撞检测 - 避免坦克互相穿过
+        if (player != null && player.isAlive() && aiTank != null && aiTank.isAlive()) {
+            Rectangle playerBounds = player.getCollisionBounds();
+            Rectangle aiBounds = aiTank.getCollisionBounds();
+            
+            if (playerBounds.intersects(aiBounds)) {
+                // 坦克碰撞，将它们推开
+                double angle = Math.atan2(
+                    player.getY() - aiTank.getY(),
+                    player.getX() - aiTank.getX()
+                );
+                
+                // 计算推开距离
+                int pushDistance = 5; // 推开距离
+                
+                // 计算新位置
+                int newPlayerX = player.getX() + (int)(Math.cos(angle) * pushDistance);
+                int newPlayerY = player.getY() + (int)(Math.sin(angle) * pushDistance);
+                
+                int newAIX = aiTank.getX() - (int)(Math.cos(angle) * pushDistance);
+                int newAIY = aiTank.getY() - (int)(Math.sin(angle) * pushDistance);
+                
+                // 更新位置 - 如果新位置有效
+                if (!detector.isColliding(newPlayerX, newPlayerY, player.getWidth(), player.getHeight())) {
+                    player.setPosition(newPlayerX, newPlayerY);
+                }
+                
+                if (!detector.isColliding(newAIX, newAIY, aiTank.getWidth(), aiTank.getHeight())) {
+                    aiTank.setPosition(newAIX, newAIY);
+                }
+            }
+        }
     }
 
     private void checkScores() {
@@ -446,9 +503,11 @@ public class PVEMode extends JPanel implements KeyListener {
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
         
-        // 绘制墙体
-        for (PVEWall wall : walls) {
-            wall.draw(g);
+        // 只在游戏运行时绘制墙体
+        if (gameRunning && walls != null) {
+            for (PVEWall wall : walls) {
+                wall.draw(g);
+            }
         }
         
         // 绘制坦克
@@ -491,6 +550,27 @@ public class PVEMode extends JPanel implements KeyListener {
     public void keyTyped(KeyEvent e) {}
 
     public void startGame() {
+        // 确保游戏区域尺寸已更新
+        gameAreaWidth = getWidth();
+        gameAreaHeight = getHeight();
+        
+        // 如果尺寸仍无效，使用默认值
+        if (gameAreaWidth <= 0) gameAreaWidth = 800;
+        if (gameAreaHeight <= 0) gameAreaHeight = 600;
+        
+        // 更新碰撞检测器
+        if (detector instanceof SimpleCollisionDetector) {
+            ((SimpleCollisionDetector)detector).setGameAreaSize(
+                    new Dimension(gameAreaWidth, gameAreaHeight)
+            );
+        }
+        
+        // 在游戏开始时初始化墙体
+        initWalls();
+        
+        // 重新定位坦克，确保它们在有效位置
+        repositionTanks();
+        
         // 只在游戏未运行时才启动
         if (!gameRunning) {
             gameRunning = true;
@@ -541,5 +621,22 @@ public class PVEMode extends JPanel implements KeyListener {
         
         // 更新显示
         updateDisplays();
+    }
+
+    // 添加一个重新定位坦克的方法
+    private void repositionTanks() {
+        if (player != null) {
+            // 将玩家坦克放在游戏区域左侧中间位置
+            int playerX = Math.min(50, gameAreaWidth / 10);
+            int playerY = gameAreaHeight / 2 - player.getHeight() / 2;
+            player.setPosition(playerX, playerY);
+        }
+        
+        if (aiTank != null) {
+            // 将AI坦克放在游戏区域右侧中间位置
+            int aiX = Math.max(gameAreaWidth - 50 - aiTank.getWidth(), gameAreaWidth * 9 / 10 - aiTank.getWidth());
+            int aiY = gameAreaHeight / 2 - aiTank.getHeight() / 2;
+            aiTank.setPosition(aiX, aiY);
+        }
     }
 }
