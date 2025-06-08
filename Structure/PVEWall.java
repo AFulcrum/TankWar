@@ -155,12 +155,13 @@ public class PVEWall {
      * 生成适合游戏区域大小的墙体集合
      */
     public static PVEWall[] generateWalls(int areaWidth, int areaHeight, Rectangle playerPos, Rectangle aiPos) {
-        int gridSize = 150; // 网格大小
-        int cols = Math.max(3, areaWidth / gridSize);
-        int rows = Math.max(3, areaHeight / gridSize);
+        // 减小网格大小，增加网格数量
+        int gridSize = 120; // 从150减小到120
+        int cols = Math.max(4, areaWidth / gridSize);
+        int rows = Math.max(4, areaHeight / gridSize);
         
-        // 估计可以放置的墙体数量
-        int maxWalls = (cols * rows) / 4; // 每四个格子放一个墙体
+        // 增加墙体密度 - 从每四个格子一个墙体改为每三个格子一个墙体
+        int maxWalls = (cols * rows) / 3; 
         List<PVEWall> wallList = new ArrayList<>();
         
         // 记录已占用的区域
@@ -170,10 +171,13 @@ public class PVEWall {
         markTankPosition(occupied, playerPos, gridSize, cols, rows);
         markTankPosition(occupied, aiPos, gridSize, cols, rows);
         
-        // 迷宫生成参数
+        // 增加尝试次数，给算法更多放置墙体的机会
         Random random = new Random();
         int attempts = 0;
-        int maxAttempts = cols * rows * 2;
+        int maxAttempts = cols * rows * 3; // 从2倍增加到3倍
+        
+        // 确保通道 - 创建预定义的通道图案
+        createPathways(occupied, cols, rows);
         
         // 尝试放置墙体
         while (wallList.size() < maxWalls && attempts < maxAttempts) {
@@ -188,9 +192,9 @@ public class PVEWall {
                 // 确定墙体类型 - 随机选择不同形状增加变化
                 int wallType = random.nextInt(5); // 0-4对应不同形状
                 
-                // 随机墙体尺寸 - 保持在合理范围内
-                int width = MIN_WIDTH + random.nextInt(MAX_WIDTH - MIN_WIDTH);
-                int height = MIN_HEIGHT + random.nextInt(MAX_HEIGHT - MIN_HEIGHT);
+                // 稍微减小墙体尺寸 - 保持在合理范围内
+                int width = MIN_WIDTH + random.nextInt(MAX_WIDTH - MIN_WIDTH - 10);
+                int height = MIN_HEIGHT + random.nextInt(MAX_HEIGHT - MIN_HEIGHT - 10);
                 
                 // 计算实际坐标 (居中放置在网格中)
                 int x = gridX * gridSize + (gridSize - width) / 2;
@@ -218,6 +222,9 @@ public class PVEWall {
             }
         }
         
+        // 添加额外的小型墙体填充空白区域
+        addSmallWalls(wallList, occupied, gridSize, cols, rows, areaWidth, areaHeight, playerPos, aiPos);
+        
         // 添加围墙
         addBoundaryWalls(wallList, areaWidth, areaHeight);
         
@@ -225,27 +232,110 @@ public class PVEWall {
     }
     
     /**
-     * 标记坦克位置为已占用
+     * 创建预定义的通道图案，确保地图有足够的通行空间
      */
-    private static void markTankPosition(boolean[][] occupied, Rectangle tankPos, int gridSize, int cols, int rows) {
-        if (tankPos == null) return;
+    private static void createPathways(boolean[][] occupied, int cols, int rows) {
+        // 中央十字通道
+        int midX = cols / 2;
+        int midY = rows / 2;
         
-        // 计算坦克占用的网格坐标范围
-        int gridX1 = Math.max(0, tankPos.x / gridSize);
-        int gridY1 = Math.max(0, tankPos.y / gridSize);
-        int gridX2 = Math.min(cols - 1, (tankPos.x + tankPos.width) / gridSize);
-        int gridY2 = Math.min(rows - 1, (tankPos.y + tankPos.height) / gridSize);
+        // 横向通道
+        for (int x = 1; x < cols - 1; x++) {
+            occupied[x][midY] = true;
+        }
         
-        // 标记坦克及其周围的网格为已占用
-        for (int gx = Math.max(0, gridX1 - 1); gx <= Math.min(cols - 1, gridX2 + 1); gx++) {
-            for (int gy = Math.max(0, gridY1 - 1); gy <= Math.min(rows - 1, gridY2 + 1); gy++) {
-                occupied[gx][gy] = true;
-            }
+        // 纵向通道
+        for (int y = 1; y < rows - 1; y++) {
+            occupied[midX][y] = true;
+        }
+        
+        // 随机添加一些额外通道
+        Random rand = new Random();
+        
+        // 额外的横向通道
+        int extraHorizontal = rand.nextInt(rows-4) + 2; // 避开边缘和中心
+        if (extraHorizontal == midY) extraHorizontal = (extraHorizontal + 1) % rows;
+        for (int x = 1; x < cols - 1; x++) {
+            occupied[x][extraHorizontal] = true;
+        }
+        
+        // 额外的纵向通道
+        int extraVertical = rand.nextInt(cols-4) + 2; // 避开边缘和中心
+        if (extraVertical == midX) extraVertical = (extraVertical + 1) % cols;
+        for (int y = 1; y < rows - 1; y++) {
+            occupied[extraVertical][y] = true;
         }
     }
     
     /**
-     * 检查网格是否可用
+     * 添加额外的小型墙体填充空白区域
+     */
+    private static void addSmallWalls(List<PVEWall> wallList, boolean[][] occupied, int gridSize,
+                                 int cols, int rows, int areaWidth, int areaHeight,
+                                 Rectangle playerPos, Rectangle aiPos) {
+        Random random = new Random();
+        int smallWallSize = 25; // 小型墙体尺寸
+        int minGap = 75; // 减小小型墙体的间隙要求
+        
+        // 尝试放置更多小型墙体
+        int attempts = 0;
+        int maxSmallWalls = (cols * rows) / 2; // 可以放置更多的小型墙体
+        int smallWallsAdded = 0;
+        
+        while (smallWallsAdded < maxSmallWalls && attempts < cols * rows * 2) {
+            attempts++;
+            
+            // 随机选择网格内的位置
+            int gridX = random.nextInt(cols);
+            int gridY = random.nextInt(rows);
+            
+            // 跳过已标记为通道的位置
+            if (occupied[gridX][gridY]) {
+                continue;
+            }
+            
+            // 在网格内随机偏移
+            int offsetX = random.nextInt(gridSize - smallWallSize);
+            int offsetY = random.nextInt(gridSize - smallWallSize);
+            
+            // 计算实际坐标
+            int x = gridX * gridSize + offsetX;
+            int y = gridY * gridSize + offsetY;
+            
+            // 创建小型墙体
+            PVEWall smallWall = new PVEWall(x, y, smallWallSize, smallWallSize);
+            
+            // 检查是否与现有墙体碰撞 - 使用较小的间隙要求
+            boolean collision = false;
+            for (PVEWall existingWall : wallList) {
+                // 自定义碰撞检测，使用较小的间隙
+                Rectangle existingBounds = existingWall.getCollisionBounds();
+                Rectangle newBounds = smallWall.getCollisionBounds();
+                
+                if (newBounds.x > existingBounds.x + existingBounds.width + minGap ||
+                    existingBounds.x > newBounds.x + newBounds.width + minGap ||
+                    newBounds.y > existingBounds.y + existingBounds.height + minGap ||
+                    existingBounds.y > newBounds.y + newBounds.height + minGap) {
+                    // 有足够间隙，不碰撞
+                } else {
+                    collision = true;
+                    break;
+                }
+            }
+            
+            // 检查是否与玩家或AI碰撞
+            if (!collision && !smallWall.collidesWithTank(playerPos) && !smallWall.collidesWithTank(aiPos)) {
+                wallList.add(smallWall);
+                smallWallsAdded++;
+                
+                // 标记此位置为已占用
+                occupied[gridX][gridY] = true;
+            }
+        }
+    }
+
+    /**
+     * 修改检查网格是否可用的方法 - 允许更密集的墙体放置
      */
     private static boolean isGridAvailable(boolean[][] occupied, int x, int y, int cols, int rows) {
         // 检查是否在边界内
@@ -258,27 +348,57 @@ public class PVEWall {
             return false;
         }
         
-        // 检查是否靠近边缘 (为边缘留出空间)
+        // 检查是否靠近边缘 (为边缘留出空间，但稍微放宽条件)
         if (x == 0 || x == cols - 1 || y == 0 || y == rows - 1) {
             return false;
         }
         
-        return true;
+        // 不需要检查所有相邻格子，只检查必要的位置，允许更密集放置
+        // 确保至少一个相邻位置为空，提供通行空间
+        boolean hasEmptyNeighbor = false;
+        for (int dx = -1; dx <= 1; dx += 2) { // 只检查上下左右四个方向
+            int nx = x + dx;
+            if (nx >= 0 && nx < cols && !occupied[nx][y]) {
+                hasEmptyNeighbor = true;
+                break;
+            }
+        }
+        
+        if (!hasEmptyNeighbor) {
+            for (int dy = -1; dy <= 1; dy += 2) {
+                int ny = y + dy;
+                if (ny >= 0 && ny < rows && !occupied[x][ny]) {
+                    hasEmptyNeighbor = true;
+                    break;
+                }
+            }
+        }
+        
+        return hasEmptyNeighbor;
     }
-    
+
     /**
-     * 标记已占用区域
+     * 修改标记已占用区域方法 - 减少标记范围，允许更密集放置
      */
     private static void markOccupiedArea(boolean[][] occupied, int x, int y, int cols, int rows) {
         // 标记当前位置为已占用
         occupied[x][y] = true;
         
-        // 标记周围的网格为已占用，确保墙体间距
-        for (int dx = -1; dx <= 1; dx++) {
-            for (int dy = -1; dy <= 1; dy++) {
-                int nx = x + dx;
-                int ny = y + dy;
-                if (nx >= 0 && nx < cols && ny >= 0 && ny < rows) {
+        // 只标记十字方向的相邻格子，而不是所有8个方向
+        // 这样可以在保留通行空间的同时允许更密集的墙体
+        int[][] directions = {
+            {0, -1},  // 上
+            {1, 0},   // 右
+            {0, 1},   // 下
+            {-1, 0}   // 左
+        };
+        
+        for (int[] dir : directions) {
+            int nx = x + dir[0];
+            int ny = y + dir[1];
+            if (nx >= 0 && nx < cols && ny >= 0 && ny < rows) {
+                // 设置70%的概率标记相邻格子，增加随机性
+                if (Math.random() < 0.7) {
                     occupied[nx][ny] = true;
                 }
             }
@@ -303,6 +423,26 @@ public class PVEWall {
         
         // 右边界 - 完全覆盖右侧（包括角落）
         walls.add(new PVEWall(width - wallThickness, 0, wallThickness, height));
+    }
+    
+    /**
+     * 标记坦克位置及其周围区域为已占用，防止墙体生成在坦克位置
+     */
+    private static void markTankPosition(boolean[][] occupied, Rectangle tankPos, int gridSize, int cols, int rows) {
+        if (tankPos == null) return;
+        
+        // 计算坦克所在的网格范围
+        int startGridX = Math.max(0, tankPos.x / gridSize);
+        int startGridY = Math.max(0, tankPos.y / gridSize);
+        int endGridX = Math.min(cols - 1, (tankPos.x + tankPos.width) / gridSize);
+        int endGridY = Math.min(rows - 1, (tankPos.y + tankPos.height) / gridSize);
+        
+        // 标记坦克位置及周围一格范围为已占用
+        for (int x = Math.max(0, startGridX - 1); x <= Math.min(cols - 1, endGridX + 1); x++) {
+            for (int y = Math.max(0, startGridY - 1); y <= Math.min(rows - 1, endGridY + 1); y++) {
+                occupied[x][y] = true;
+            }
+        }
     }
 
     /**
