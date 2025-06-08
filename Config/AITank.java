@@ -11,7 +11,7 @@ import java.util.List;
 public class AITank extends AbstractTank {
     // 图像和方向
     private double angle = 0; // 0表示向上，顺时针为正
-    private final String tankPath = "/Images/TankImage/EnemyTank/tankU.gif";
+    private final String tankPath = "/Images/TankImage/EnemyTank/tankR.gif";
     private Image tankImage;
     
     // 移动和碰撞
@@ -21,7 +21,7 @@ public class AITank extends AbstractTank {
     
     // 子弹管理
     private List<EnemyBullet> bullets;
-    private static final int FIRE_INTERVAL = 1000; // 发射间隔1秒
+    private static final int FIRE_INTERVAL = 1500; // 发射间隔1.5秒
     
     // 时间控制
     private long lastActionTime = 0;
@@ -30,7 +30,7 @@ public class AITank extends AbstractTank {
     private long lastStateChangeTime = 0;
     private static final long ACTION_DELAY = 100;
     private static final long PATTERN_UPDATE_INTERVAL = 1000;
-    private static final long STATE_CHANGE_COOLDOWN = 500; // 冷却时间，单位毫秒
+    private static final long STATE_CHANGE_COOLDOWN = 1500; // 冷却时间
 
     public void setAlive(boolean b) {
         super.setAlive(b);
@@ -589,12 +589,12 @@ public class AITank extends AbstractTank {
         double distance = Math.sqrt(dx * dx + dy * dy);
 
         if (distance > 0) {
-            // 更新角度
+            // 计算角度 - 将数学坐标系转换为游戏坐标系
             this.angle = Math.atan2(dy, dx);
-
-            // 使用当前角度计算新位置
-            int newX = (int)(x + Math.cos(this.angle) * currentSpeed * speedFactor);
-            int newY = (int)(y + Math.sin(this.angle) * currentSpeed * speedFactor);
+            
+            // 使用游戏坐标系计算移动 (旋转90度)
+            int newX = (int)(x + Math.sin(this.angle - Math.PI/2) * currentSpeed * speedFactor);
+            int newY = (int)(y - Math.cos(this.angle - Math.PI/2) * currentSpeed * speedFactor);
 
             if (checkCollision(newX, newY)) {
                 x = newX;

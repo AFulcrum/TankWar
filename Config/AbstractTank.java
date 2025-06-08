@@ -287,7 +287,7 @@ public abstract class AbstractTank implements Tank {
         return collisionDetector.isColliding(newX, newY, width, height);
     }
 
-    protected void setAlive(boolean b) {
+    public void setAlive(boolean b) {
         this.alive = b;
     }
 }
