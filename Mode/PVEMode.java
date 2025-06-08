@@ -68,8 +68,6 @@ public class PVEMode extends JPanel implements KeyListener {
                 // 更新游戏区域尺寸
                 gameAreaWidth = getWidth();
                 gameAreaHeight = getHeight();
-                
-                System.out.println("游戏区域大小变化: " + gameAreaWidth + "x" + gameAreaHeight);
 
                 // 更新碰撞检测器的游戏区域大小
                 if (detector instanceof SimpleCollisionDetector) {
@@ -188,8 +186,6 @@ public class PVEMode extends JPanel implements KeyListener {
         // 如果尺寸无效，使用默认值
         if (areaWidth <= 0) areaWidth = 800;
         if (areaHeight <= 0) areaHeight = 600;
-
-        System.out.println("初始化墙体，游戏区域大小: " + areaWidth + "x" + areaHeight);
         
         // 创建玩家和AI坦克的碰撞边界
         Rectangle playerBounds = player != null ?
@@ -210,9 +206,6 @@ public class PVEMode extends JPanel implements KeyListener {
         updateCollisionDetector();
     }
 
-    /**
-     * 更新碰撞检测器中的墙体信息
-     */
     private void updateCollisionDetector() {
         if (detector instanceof SimpleCollisionDetector) {
             SimpleCollisionDetector simpleDetector = (SimpleCollisionDetector) detector;
@@ -281,33 +274,13 @@ public class PVEMode extends JPanel implements KeyListener {
         
         if (aiTank == null) {
             aiTank = new AITank(x, y, detector);
-            // 修正AITank的角度计算，确保图像与移动方向一致
-            fixAITankRotation(aiTank);
         } else {
             aiTank.setPosition(x, y);
             aiTank.revive();
         }
     }
     
-    /**
-     * 修正AI坦克旋转方向问题
-     */
-    private void fixAITankRotation(AITank tank) {
-        // 这个方法将在AITank实例创建后被调用，用来修正角度计算
-        // 实际的修复将在AITank类的方法中实现
-        // 这里我们可以通过反射来设置内部字段，或者添加配置属性
-        
-        // 由于我们不能直接修改AITank类，这里添加一个标记让它知道需要调整旋转
-        // 假设AITank类有setFixRotation方法
-        try {
-            // 可以通过反射或其他方式设置
-            // 这里简化处理，假设这个方法存在
-            // tank.setFixRotation(true);
-            System.out.println("已应用AI坦克旋转修正");
-        } catch (Exception e) {
-            System.err.println("无法应用AI坦克旋转修正: " + e.getMessage());
-        }
-    }
+    
     
     /**
      * 检查位置是否被墙体阻挡
@@ -561,9 +534,7 @@ public class PVEMode extends JPanel implements KeyListener {
                     Timer respawnTimer = new Timer(800, e -> respawnTank(player, aiTank));
                     respawnTimer.setRepeats(false);
                     respawnTimer.start();
-                    
-                    // 打印调试信息
-                    System.out.println("玩家被击中! 位置: " + player.getX() + "," + player.getY());
+
                     break;
                 }
             }
@@ -583,11 +554,7 @@ public class PVEMode extends JPanel implements KeyListener {
         
         // 使用ExplosionManager创建爆炸效果
         ExplosionManager.getInstance().createExplosion(centerX, centerY, explosionSize);
-        
-        // 播放爆炸音效 (如果有)
-        // playExplosionSound();
-        
-        System.out.println("创建爆炸效果 at " + centerX + "," + centerY);
+
     }
 
     /**
@@ -875,7 +842,7 @@ public class PVEMode extends JPanel implements KeyListener {
         // 重置游戏组件
         walls = new ArrayList<>();
         
-        // 创建玩家坦克 - 位置在屏幕外（隐藏）
+        // 创建玩家坦克 ,位置在屏幕外（隐藏）
         player = new PlayerTank(-100, -100, detector);
         
         // 重置AI坦克（保留学习数据）
@@ -925,7 +892,6 @@ public class PVEMode extends JPanel implements KeyListener {
         
         // 设置玩家坦克位置
         player.setPosition(x, y);
-        System.out.println("玩家坦克随机放置位置: " + x + "," + y);
     }
     
     /**
@@ -1070,7 +1036,6 @@ public class PVEMode extends JPanel implements KeyListener {
         Rectangle collidedRect = null;  // 碰撞的墙体矩形
     }
 
-    // 在PVEMode.java中添加以下方法，用于检测子弹是否太靠近坦克
     private boolean isBulletTooCloseToTank(EnemyBullet bullet, PlayerTank tank) {
         // 仅在子弹刚生成且距离太近时过滤，而不是一直过滤
         if (bullet.getTravelDistance() > 20) { 
@@ -1310,8 +1275,7 @@ public class PVEMode extends JPanel implements KeyListener {
         
         // 增加反弹计数
         bullet.bounce();
-        
-        // 与墙体碰撞不创建爆炸效果，只在碰撞检测中处理子弹击中坦克时才创建爆炸效果
+
     }
 
     /**
@@ -1361,8 +1325,7 @@ public class PVEMode extends JPanel implements KeyListener {
         
         // 增加反弹计数
         bullet.bounce();
-        
-        // 与墙体碰撞不创建爆炸效果，只在碰撞检测中处理子弹击中坦克时才创建爆炸效果
+
     }
     
     /**

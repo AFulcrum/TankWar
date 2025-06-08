@@ -534,30 +534,20 @@ public class PVPMode extends JPanel {
 
                         if (enemyBounds != null && bulletBounds.intersects(enemyBounds)) {
                             bullet.deactivate(); // 击中坦克直接消失，不反弹
-                            
-
                             // 在坦克死亡前，保存它的子弹到孤儿子弹列表
                             List<EnemyBullet> activeBullets = new ArrayList<>(enemy.getBullets());
                             orphanedBullets.addAll(activeBullets);
-                            
-
                             // 清空坦克的子弹列表，防止重复
                             enemy.getBullets().clear();
-                            
-
                             // 然后再处理坦克伤害
                             enemy.takeDamage(bullet.getDamage());
-
                             if (!enemy.isAlive()) {
                                 // 敌方坦克被摧毁，增加得分
                                 ConfigTool.setBeatNum(String.valueOf(ConfigTool.getBeatNum() + 1));
                                 ConfigTool.saveConfig();
                                 updateDisplays();
-
                                 // 移除被摧毁的敌方坦克
                                 enemies.remove(i);
-                                i--;
-
                                 // 如果没有敌人了，随机重生1-3个敌人
                                 if (enemies.isEmpty()) {
                                     Timer respawnTimer = new Timer(1000, e -> {
@@ -589,7 +579,7 @@ public class PVPMode extends JPanel {
                         player.takeDamage(bullet.getDamage());
                         updateDisplays();
                         
-                        // 检查游戏是否结束 - 使用明确的生命值检查
+                        // 检查游戏是否结束,使用明确的生命值检查
                         if (player.getHealth() <= 0) {
                             System.out.println("玩家生命值为0，游戏结束");
                             gameOver();
@@ -694,7 +684,6 @@ public class PVPMode extends JPanel {
     public void endGame() {
         gameRunning = false;
         gameTimer.stop();
-        // 不要将player设置为null，只需清空敌方坦克列表
         enemies.clear();
         
         // 清除所有爆炸效果
@@ -705,7 +694,7 @@ public class PVPMode extends JPanel {
         // 清空敌人
         enemies.clear();
         
-        // 重置玩家坦克 - 使用新的坦克实例完全重置
+        // 重置玩家坦克,使用新的坦克实例完全重置
         player = new PlayerTank(50, 50, detector);
         PlayerTank.resetHealth(); // 确保静态生命值被重置
         

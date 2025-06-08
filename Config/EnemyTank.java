@@ -148,7 +148,7 @@ public class EnemyTank extends AbstractTank {
         rotateDuration--;
     }
 
-    // 巡逻模式 - 尝试移动到指定点
+    // 巡逻模式,尝试移动到指定点
     private void patrolMovement() {
         // 计算与目标点的方向
         double targetAngle = Math.atan2(
@@ -195,7 +195,7 @@ public class EnemyTank extends AbstractTank {
         }
     }
 
-    // 避开墙壁模式 - 当发生碰撞时尝试改变方向
+    // 避开墙壁模式,当发生碰撞时尝试改变方向
     private void avoidWallMovement() {
         // 探测前方是否有墙
         int probeDistance = 30;
@@ -298,7 +298,7 @@ public class EnemyTank extends AbstractTank {
         }
     }
 
-    // 智能射击 - 考虑玩家位置
+    // 智能射击,考虑玩家位置
     private void tryToFire(PlayerTank player) {
         if (!alive || player == null || !player.isAlive()) return;
 
@@ -401,11 +401,9 @@ public class EnemyTank extends AbstractTank {
     public void fire(PlayerTank player) {
         long currentTime = System.currentTimeMillis();
         if (currentTime - lastFireTime >= FIRE_INTERVAL) {
-            // 计算炮管前端位置 - 正确的计算方式
+            // 计算炮管前端位置,正确的计算方式
             int barrelLength = width / 2 + 5;
-            
-            // 修正：使用正确的三角函数计算子弹生成位置
-            // 假设0度表示向右（与tankR.gif图片一致）
+
             int bulletX = (int) (x + width / 2 + Math.cos(angle) * barrelLength);
             int bulletY = (int) (y + height / 2 + Math.sin(angle) * barrelLength);
 
@@ -457,7 +455,7 @@ public class EnemyTank extends AbstractTank {
 
     @Override
     public void useSkill() {
-        System.out.println("使用技能");
+
     }
 
     @Override
@@ -492,19 +490,12 @@ public class EnemyTank extends AbstractTank {
                 List<EnemyBullet> activeBullets = new ArrayList<>(bullets);
                 bullets.clear();
 
-                // 将子弹添加到PVPMode或PVEMode的孤儿子弹列表中
-                if (bullets != null && !bullets.isEmpty()) {
-                    // 在Mode类中需要提供一个添加孤儿子弹的方法
-                    // 例如: pvpMode.addOrphanedBullets(activeBullets);
-                }
-
                 // 标记为死亡
                 alive = false;
 
                 // 创建爆炸效果
                 ExplosionManager.getInstance().createExplosion(explosionX, explosionY, explosionSize);
 
-                System.out.println("坦克被击毁，触发爆炸效果 at " + explosionX + "," + explosionY);
             }
         }
     }
@@ -544,7 +535,6 @@ public class EnemyTank extends AbstractTank {
         }
     }
 
-    // 替换现有的draw方法
     @Override
     public void draw(Graphics g) {
         super.draw(g); // 确保调用父类的draw方法

@@ -41,15 +41,12 @@ public class ExplosionManager {
             
             // 指定一个标准大小
             int standardSize = 66;
-
-            System.out.println("加载爆炸GIF，共" + decoder.getFrameCount() + "帧");
             // 使用缩放版本而不是原始帧
             List<BufferedImage> scaledFrames = decoder.getAllScaledFrames(standardSize, standardSize);
             explosionFrames.addAll(scaledFrames);
             
             if (!explosionFrames.isEmpty()) {
                 Image firstFrame = explosionFrames.get(0);
-                System.out.println("第一帧大小: " + firstFrame.getWidth(null) + "x" + firstFrame.getHeight(null));
             }
 
             framesLoaded = true;
@@ -65,12 +62,9 @@ public class ExplosionManager {
             System.out.println("爆炸帧未加载，无法创建爆炸效果");
             return;
         }
-        
-        System.out.println("请求的爆炸大小: " + size);
 
         Explosion explosion = new Explosion(x, y, size);
         activeExplosions.add(explosion);
-        System.out.println("创建爆炸效果，位置: " + x + "," + y + ", 大小: " + size);
     }
     
     // 更新所有爆炸
@@ -98,7 +92,6 @@ public class ExplosionManager {
      */
     public void clearAllExplosions() {
         activeExplosions.clear();
-        System.out.println("已清除所有爆炸效果");
     }
     
     // 内部爆炸类

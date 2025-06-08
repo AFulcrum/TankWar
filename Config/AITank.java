@@ -181,7 +181,7 @@ public class AITank extends AbstractTank {
         updateBullets();
         lastActionTime = currentTime;
         
-        // 随机学习 - 每500次更新学习一次(约10秒)
+        // 随机学习,每500次更新学习一次(约10秒)
         if (random.nextInt(500) == 0) {
             boolean success = isPerformingWell(player);
             advancedLearn(success, player);

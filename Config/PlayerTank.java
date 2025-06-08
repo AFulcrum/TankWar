@@ -115,7 +115,7 @@ public class PlayerTank extends AbstractTank {
             return tankImages[0];
         }
 
-        // 动画切换逻辑 - 每200毫秒切换一次图片
+        // 动画切换逻辑,每200毫秒切换一次图片
         long currentTime = System.currentTimeMillis();
         if (currentTime - lastImageSwitchTime > 200) {
             currentImageIndex = (currentImageIndex + 1) % 2;
@@ -273,25 +273,19 @@ public class PlayerTank extends AbstractTank {
         }
     }
 
-    // Add this method to stop the tank's movement
     public void stopMoving() {
-        // Implementation depends on how movement is handled.
-        // For example, if you have a direction or velocity field, reset it here.
         isMoving = false;
     }
 
     public void moveRight() {
-        // Example implementation: move the tank to the right by a fixed speed
         setPosition(getX() + speed, getY());
     }
 
     public void moveLeft() {
-        // Implement the logic to move the tank left
-        // For example:
         setPosition(getX() - speed, getY());
     }
 
-    // 在PlayerTank.java中添加重置键盘状态的方法
+    // 在PlayerTank中添加重置键盘状态的方法
     public void resetKeyStates() {
         // 重置所有按键状态
         for (int i = 0; i < keysPressed.length; i++) {
@@ -300,7 +294,6 @@ public class PlayerTank extends AbstractTank {
         // 重置特殊状态
         spaceKeyPressed = false;
         isMoving = false;
-        
         // 确保旋转和移动停止
         updateMovement();
     }

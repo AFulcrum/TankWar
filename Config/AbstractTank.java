@@ -58,7 +58,6 @@ public abstract class AbstractTank implements Tank {
                 File file = new File(projectDir + "/src/Images/explotion.gif");
                 if (file.exists()) {
                     url = file.toURI().toURL();
-                    System.out.println("使用绝对路径加载: " + file.getAbsolutePath());
                 } else {
                     System.err.println("文件不存在: " + file.getAbsolutePath());
                 }
@@ -161,7 +160,6 @@ public abstract class AbstractTank implements Tank {
         health -= damage;
         
         if (health <= 0) {
-            System.out.println("坦克被击毁，触发爆炸效果");
             alive = false;
             
             // 创建爆炸效果,使用爆炸管理器
@@ -172,23 +170,6 @@ public abstract class AbstractTank implements Tank {
             ExplosionManager.getInstance().createExplosion(centerX, centerY, explosionSize);
         }
     }
-
-//    // 开始爆炸效果
-//    protected void startExplosion() {
-//        if (!exploding && explosionFrames != null && !explosionFrames.isEmpty()) {
-//            exploding = true;
-//            explosionFrame = 0;
-//            lastFrameTime = System.currentTimeMillis();
-//
-//            // 创建一个定时器来确保爆炸效果会更新
-//            Timer explosionTimer = new Timer(100, e -> {
-//                if (!exploding) {
-//                    ((Timer)e.getSource()).stop();
-//                }
-//            });
-//            explosionTimer.start();
-//        }
-//    }
 
     // 更新爆炸效果
     protected void updateExplosion() {
