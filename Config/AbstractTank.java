@@ -81,11 +81,9 @@ public abstract class AbstractTank implements Tank {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            
             // 添加图像
             explosionFrames.add(explosionImage);
-            
-            System.out.println("爆炸图片加载成功，尺寸: " + explosionImage.getWidth(null) + "x" + explosionImage.getHeight(null));
+
         } catch (Exception e) {
             System.err.println("无法加载爆炸效果图像: " + e.getMessage());
             e.printStackTrace();
@@ -130,9 +128,6 @@ public abstract class AbstractTank implements Tank {
 
     @Override
     public boolean checkCollision(int newX, int newY) {
-        // 这里应该实现与游戏地图和其他物体的碰撞检测
-        // 返回true表示可以移动，false表示会发生碰撞
-        // 这是一个基本实现，实际游戏中需要更复杂的碰撞检测
         return !collisionDetector.isColliding(newX, newY, width, height);
     }
 
@@ -164,13 +159,12 @@ public abstract class AbstractTank implements Tank {
     @Override
     public void takeDamage(int damage) {
         health -= damage;
-        System.out.println("坦克受到伤害: " + damage + ", 当前生命值: " + health);
         
         if (health <= 0) {
             System.out.println("坦克被击毁，触发爆炸效果");
             alive = false;
             
-            // 创建爆炸效果 - 使用新的爆炸管理器
+            // 创建爆炸效果,使用爆炸管理器
             int centerX = x + width / 2;
             int centerY = y + height / 2;
             int explosionSize = Math.max(width, height) * 2; // 爆炸尺寸是坦克的2倍
@@ -179,30 +173,29 @@ public abstract class AbstractTank implements Tank {
         }
     }
 
-    // 开始爆炸效果
-    protected void startExplosion() {
-        if (!exploding && explosionFrames != null && !explosionFrames.isEmpty()) {
-            exploding = true;
-            explosionFrame = 0;
-            lastFrameTime = System.currentTimeMillis();
-            
-            // 创建一个定时器来确保爆炸效果会更新
-            Timer explosionTimer = new Timer(100, e -> {
-                if (!exploding) {
-                    ((Timer)e.getSource()).stop();
-                }
-            });
-            explosionTimer.start();
-        }
-    }
+//    // 开始爆炸效果
+//    protected void startExplosion() {
+//        if (!exploding && explosionFrames != null && !explosionFrames.isEmpty()) {
+//            exploding = true;
+//            explosionFrame = 0;
+//            lastFrameTime = System.currentTimeMillis();
+//
+//            // 创建一个定时器来确保爆炸效果会更新
+//            Timer explosionTimer = new Timer(100, e -> {
+//                if (!exploding) {
+//                    ((Timer)e.getSource()).stop();
+//                }
+//            });
+//            explosionTimer.start();
+//        }
+//    }
 
     // 更新爆炸效果
     protected void updateExplosion() {
         if (exploding && explosionFrames != null && !explosionFrames.isEmpty()) {
             long currentTime = System.currentTimeMillis();
-            // 延长爆炸持续时间从0.8秒到1.5秒
+            // 爆炸持续时间1.5秒
             if (currentTime - lastFrameTime > 1500) {
-                System.out.println("爆炸效果结束");
                 exploding = false; // 结束爆炸效果
             }
         }
@@ -234,8 +227,7 @@ public abstract class AbstractTank implements Tank {
             g2d.fillOval(drawX, drawY, drawWidth, drawHeight);
             
             g2d.dispose();
-            
-            System.out.println("绘制爆炸效果，位置: " + drawX + "," + drawY);
+
         }
     }
 

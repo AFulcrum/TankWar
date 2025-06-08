@@ -648,19 +648,22 @@ public class PVPMode extends JPanel {
             wall.draw(g);
         }
         
-        // 直接调用坦克的draw方法，而不是自己实现绘制逻辑
-        if (player != null) {
+        // 仅当游戏运行时才绘制玩家坦克
+        if (gameRunning && player != null) {
             player.draw(g);
         }
 
-        // 绘制所有敌方坦克
-        for (EnemyTank enemy : enemies) {
-            enemy.draw(g);
-        }
-        
-        // 绘制孤儿子弹
-        for (EnemyBullet bullet : orphanedBullets) {
-            bullet.draw(g);
+        // 仅当游戏运行时才绘制敌方坦克
+        if (gameRunning) {
+            // 绘制所有敌方坦克
+            for (EnemyTank enemy : enemies) {
+                enemy.draw(g);
+            }
+            
+            // 绘制孤儿子弹
+            for (EnemyBullet bullet : orphanedBullets) {
+                bullet.draw(g);
+            }
         }
         
         // 最后绘制爆炸效果（最高优先级）
@@ -671,6 +674,14 @@ public class PVPMode extends JPanel {
         // 重置游戏统计数据
         ConfigTool.resetGameStats(); // 重置击败数为0
         updateDisplays(); // 更新显示
+        
+        // 确保玩家坦克在正确位置
+        repositionPlayerTank();
+        
+        // 如果敌人列表为空，创建初始敌人
+        if (enemies.isEmpty()) {
+            createInitialEnemies();
+        }
         
         gameRunning = true;
         gameTimer.start();
@@ -701,8 +712,8 @@ public class PVPMode extends JPanel {
         // 重置游戏状态
         gameRunning = false;
         
-        // 重新定位玩家坦克和创建敌方坦克
-        repositionPlayerTank();
+        // 不立即重定位玩家坦克，等游戏开始时再定位
+        // 仅创建敌方坦克但不显示（由于gameRunning=false）
         createInitialEnemies();
         
         // 清空孤儿子弹列表

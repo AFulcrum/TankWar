@@ -21,14 +21,14 @@ public class AITank extends AbstractTank {
     
     // 子弹管理
     private List<EnemyBullet> bullets;
-    private static int fireInterval = 2500; // Changed from final to allow modification
+    private static int fireInterval = 2500;
     
     // 时间控制
     private long lastActionTime = 0;
     private long lastFireTime = 0;
     private long lastPlayerPositionUpdate = 0;
     private long lastStateChangeTime = 0;
-    private static long actionDelay = 100; // Changed from final to allow modification
+    private static long actionDelay = 100;
     private static final long PATTERN_UPDATE_INTERVAL = 1000;
     private static final long STATE_CHANGE_COOLDOWN = 1500; // 冷却时间
 
@@ -79,10 +79,7 @@ public class AITank extends AbstractTank {
     // 威胁检测距离
     private static final double BULLET_DETECT_DISTANCE = 250;
     private static final double IMMEDIATE_EVADE_DISTANCE = 150;
-    
-    /**
-     * AI坦克构造函数
-     */
+
     public AITank(int x, int y, CollisionDetector detector) {
         super(x, y, 64, 64, 1, detector);
         this.detector = detector;
@@ -104,9 +101,7 @@ public class AITank extends AbstractTank {
         }
     }
     
-    /**
-     * 加载坦克图像
-     */
+    //加载坦克图像
     private void loadTankImage() {
         try {
             URL url = getClass().getResource(tankPath);
@@ -116,25 +111,18 @@ public class AITank extends AbstractTank {
             }
             ImageIcon icon = new ImageIcon(url);
             tankImage = icon.getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH);
-            
-            // 不需要额外旋转，因为tankR.gif已经是向右朝向
+
         } catch (Exception e) {
             System.err.println("无法加载AI坦克图像: " + e.getMessage());
         }
     }
-    
-    /**
-     * 初始化AI性格特性
-     */
+
     private void initializePersonality() {
         this.aggressiveness = weights.getOrDefault("personality_aggressive", 0.7);
         this.intelligence = weights.getOrDefault("personality_intelligence", 0.6);
         this.precision = weights.getOrDefault("personality_precision", 0.8);
     }
-    
-    /**
-     * 创建数据目录
-     */
+
     private void createDataDirectory() {
         File dataDir = new File(DATA_DIR);
         if (!dataDir.exists()) {
@@ -144,10 +132,7 @@ public class AITank extends AbstractTank {
             }
         }
     }
-    
-    /**
-     * 更新AI状态和行为
-     */
+
     public void updateAI(PlayerTank player, int currentLevel) {
         if (!isAlive() || player == null || !player.isAlive()) return;
 
@@ -202,10 +187,7 @@ public class AITank extends AbstractTank {
             advancedLearn(success, player);
         }
     }
-    
-    /**
-     * 决定AI的行为状态
-     */
+
     private void decideBehaviorState(PlayerTank player, double distance, double threatLevel) {
         // 添加状态持续时间跟踪
         long currentTime = System.currentTimeMillis();
@@ -260,10 +242,7 @@ public class AITank extends AbstractTank {
             lastStateChangeTime = currentTime;
         }
     }
-    
-    /**
-     * 基于学习权重调整行为决策
-     */
+
     private void adjustBehaviorBasedOnLearning() {
         double attackWeight = weights.getOrDefault("chase", 0.5);
         double evadeWeight = weights.getOrDefault("evade", 0.5);
@@ -285,10 +264,7 @@ public class AITank extends AbstractTank {
             }
         }
     }
-    
-    /**
-     * 执行当前行为状态的行动
-     */
+
     private void executeBehavior(PlayerTank player, double distance, double levelFactor) {
         switch (currentBehaviorState) {
             case NORMAL:
@@ -305,10 +281,7 @@ public class AITank extends AbstractTank {
                 break;
         }
     }
-    
-    /**
-     * 普通行为模式
-     */
+
     private void normalBehavior(PlayerTank player, double distance, double levelFactor) {
         if (distance > 300) {
             moveToward(player, levelFactor);
@@ -318,10 +291,7 @@ public class AITank extends AbstractTank {
             strafingMove(player, levelFactor);
         }
     }
-    
-    /**
-     * 攻击玩家行为
-     */
+
     private void attackPlayer(PlayerTank player, double distance, double levelFactor) {
         if (distance > 200) {
             // 远距离使用预测追击
@@ -331,10 +301,7 @@ public class AITank extends AbstractTank {
             maintainOptimalDistance(player, 150, 200, levelFactor);
         }
     }
-    
-    /**
-     * 保持最佳射击距离
-     */
+
     private void maintainOptimalDistance(PlayerTank player, double minDist, double maxDist, double levelFactor) {
         double distance = calculateDistance(player);
         
@@ -349,10 +316,7 @@ public class AITank extends AbstractTank {
             strafingMove(player, levelFactor);
         }
     }
-    
-    /**
-     * 策略性移动
-     */
+
     private void strategicMovement(PlayerTank player, double levelFactor) {
         double distance = calculateDistance(player);
         double rand = random.nextDouble();

@@ -167,4 +167,26 @@ public class PlayerBullet implements Bullet {
     public double getY() {
         return y + height / 2.0; // 返回子弹中心的Y坐标
     }
+
+    /**
+     * 获取子弹半径
+     */
+    public int getRadius() {
+        return radius;
+    }
+
+    /**
+     * 设置子弹位置（基于中心点）
+     */
+    public void setPosition(int centerX, int centerY) {
+        this.x = centerX - width/2;
+        this.y = centerY - height/2;
+    }
+
+    /**
+     * 减少子弹速度（模拟能量损失）
+     */
+    public void decreaseSpeed(double factor) {
+        this.speed = Math.max(5, (int)(this.speed * factor));
+    }
 }
