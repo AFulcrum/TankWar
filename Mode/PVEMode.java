@@ -179,20 +179,11 @@ public class PVEMode extends JPanel implements KeyListener {
         if (detector instanceof SimpleCollisionDetector) {
             SimpleCollisionDetector simpleDetector = (SimpleCollisionDetector) detector;
 
-            // 创建墙体碰撞矩形列表
-            List<Rectangle> wallBounds = new ArrayList<>();
-            for (PVEWall wall : walls) {
-                if (wall.getSegments().size() > 1) {
-                    // 对于复杂形状的墙体，添加每个段落
-                    wallBounds.addAll(wall.getSegments());
-                } else {
-                    // 对于简单墙体，添加整个边界
-                    wallBounds.add(wall.getCollisionBounds());
-                }
-            }
-
-            // 更新检测器中的墙体信息
-//            simpleDetector.setWalls(wallBounds);
+            // 更新游戏区域大小
+            simpleDetector.setGameAreaSize(new Dimension(gameAreaWidth, gameAreaHeight));
+            
+            // 更新PVEWall信息
+            simpleDetector.setPVEWalls(walls);
         }
     }
 
@@ -201,14 +192,22 @@ public class PVEMode extends JPanel implements KeyListener {
         if (player != null) {
             int x = Math.min(Math.max(player.getX(), 0), gameAreaWidth - player.getWidth());
             int y = Math.min(Math.max(player.getY(), 0), gameAreaHeight - player.getHeight());
-            player.setPosition(x, y);
+            
+            // 只有当坦克真的超出边界时才移动它
+            if (x != player.getX() || y != player.getY()) {
+                player.setPosition(x, y);
+            }
         }
 
         // 调整AI坦克位置
         if (aiTank != null) {
             int x = Math.min(Math.max(aiTank.getX(), 0), gameAreaWidth - aiTank.getWidth());
             int y = Math.min(Math.max(aiTank.getY(), 0), gameAreaHeight - aiTank.getHeight());
-            aiTank.setPosition(x, y);
+            
+            // 只有当坦克真的超出边界时才移动它
+            if (x != aiTank.getX() || y != aiTank.getY()) {
+                aiTank.setPosition(x, y);
+            }
         }
     }
 
@@ -251,13 +250,6 @@ public class PVEMode extends JPanel implements KeyListener {
         // 检查与墙体的碰撞
         for (PVEWall wall : walls) {
             if (newPos.intersects(wall.getCollisionBounds())) {
-                return true;
-            }
-        }
-
-        // 检查与玩家的距离
-        if (player != null && player.isAlive()) {
-            if (distance(x, y, player.getX(), player.getY()) < RESPAWN_DISTANCE) {
                 return true;
             }
         }
@@ -395,6 +387,39 @@ public class PVEMode extends JPanel implements KeyListener {
                     respawnTimer.setRepeats(false);
                     respawnTimer.start();
                     break;
+                }
+            }
+        }
+        
+        // 新增：直接碰撞检测 - 避免坦克互相穿过
+        if (player != null && player.isAlive() && aiTank != null && aiTank.isAlive()) {
+            Rectangle playerBounds = player.getCollisionBounds();
+            Rectangle aiBounds = aiTank.getCollisionBounds();
+            
+            if (playerBounds.intersects(aiBounds)) {
+                // 坦克碰撞，将它们推开
+                double angle = Math.atan2(
+                    player.getY() - aiTank.getY(),
+                    player.getX() - aiTank.getX()
+                );
+                
+                // 计算推开距离
+                int pushDistance = 5; // 推开距离
+                
+                // 计算新位置
+                int newPlayerX = player.getX() + (int)(Math.cos(angle) * pushDistance);
+                int newPlayerY = player.getY() + (int)(Math.sin(angle) * pushDistance);
+                
+                int newAIX = aiTank.getX() - (int)(Math.cos(angle) * pushDistance);
+                int newAIY = aiTank.getY() - (int)(Math.sin(angle) * pushDistance);
+                
+                // 更新位置 - 如果新位置有效
+                if (!detector.isColliding(newPlayerX, newPlayerY, player.getWidth(), player.getHeight())) {
+                    player.setPosition(newPlayerX, newPlayerY);
+                }
+                
+                if (!detector.isColliding(newAIX, newAIY, aiTank.getWidth(), aiTank.getHeight())) {
+                    aiTank.setPosition(newAIX, newAIY);
                 }
             }
         }

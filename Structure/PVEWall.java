@@ -328,6 +328,7 @@ public class PVEWall {
             }
         }
     }
+
     public boolean isSolid() {
         return isSolid;
     }
