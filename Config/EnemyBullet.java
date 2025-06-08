@@ -78,6 +78,7 @@ public class EnemyBullet implements Bullet {
         active = false;
     }
 
+    // 修改 bounce 方法，与PlayerBullet相似的改进
     @Override
     public void bounce() {
         if (!canBounce()) {
@@ -86,24 +87,28 @@ public class EnemyBullet implements Bullet {
         }
 
         // 获取当前移动方向
-        double penetrationFactor = 1.5;
+        double dx = Math.sin(angle);
+        double dy = -Math.cos(angle);
+        
+        // 增加穿透系数，防止卡墙
+        double penetrationFactor = 1.8;
 
         // 判断反弹方向并确定更精确的后退距离
         if (Math.abs(dx) > Math.abs(dy)) {
             // 水平方向反弹
             angle = Math.PI - angle;
-            dx = -dx;
+            this.dx = -dx;
 
-            // 计算水平穿透的深度并调整位置
-            int penetrationDepth = Math.max(6, (int)(speed * Math.abs(dx) * penetrationFactor));
+            // 增加穿透距离计算，防止卡墙
+            int penetrationDepth = Math.max(10, (int)(speed * Math.abs(dx) * penetrationFactor));
             x -= (int)(Math.signum(dx) * penetrationDepth);
         } else {
             // 垂直方向反弹
             angle = -angle;
-            dy = -dy;
+            this.dy = -dy;
 
-            // 计算垂直穿透的深度并调整位置
-            int penetrationDepth = Math.max(6, (int)(speed * Math.abs(dy) * penetrationFactor));
+            // 增加穿透距离计算，防止卡墙
+            int penetrationDepth = Math.max(10, (int)(speed * Math.abs(dy) * penetrationFactor));
             y += (int)(Math.signum(dy) * penetrationDepth);
         }
 
@@ -112,6 +117,9 @@ public class EnemyBullet implements Bullet {
 
         // 增加反弹计数
         bounceCount++;
+        
+        // 每次反弹略微减速，模拟能量损失
+        speed = Math.max(5, (int)(speed * 0.95));
     }
 
     @Override

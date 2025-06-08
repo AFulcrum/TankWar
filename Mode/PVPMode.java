@@ -22,6 +22,12 @@ public class PVPMode extends JPanel {
     private JLabel healthLabel;
     private List<EnemyBullet> orphanedBullets = new ArrayList<>(); // 孤立子弹列表
 
+    // 添加以下成员变量到类顶部
+    private boolean isCountingDown = false;
+    private int countDownSeconds = 3;
+    private Timer countDownTimer;
+    private long countDownStartTime;
+
 
     public PVPMode(CollisionDetector collisionDetector, JLabel beatLabel, JLabel healthLabel) {
         this.detector = collisionDetector;
@@ -638,13 +644,13 @@ public class PVPMode extends JPanel {
             wall.draw(g);
         }
         
-        // 仅当游戏运行时才绘制玩家坦克
-        if (gameRunning && player != null) {
+        // 在倒计时或游戏运行时都绘制玩家坦克
+        if ((gameRunning || isCountingDown) && player != null) {
             player.draw(g);
         }
 
-        // 仅当游戏运行时才绘制敌方坦克
-        if (gameRunning) {
+        // 在倒计时或游戏运行时都绘制敌方坦克
+        if (gameRunning || isCountingDown) {
             // 绘制所有敌方坦克
             for (EnemyTank enemy : enemies) {
                 enemy.draw(g);
@@ -658,6 +664,74 @@ public class PVPMode extends JPanel {
         
         // 最后绘制爆炸效果（最高优先级）
         ExplosionManager.getInstance().draw(g);
+        
+        // 绘制倒计时
+        if (isCountingDown) {
+            drawCountDown(g);
+        }
+    }
+
+    /**
+     * 绘制倒计时数字
+     */
+    private void drawCountDown(Graphics g) {
+        // 保存原始颜色
+        Color originalColor = g.getColor();
+        
+        // 设置倒计时文本属性
+        int fontSize = Math.min(getWidth(), getHeight()) / 5; // 根据游戏区域大小调整字体
+        Font countdownFont = new Font("Arial", Font.BOLD, fontSize);
+        g.setFont(countdownFont);
+        
+        // 计算文本绘制位置（居中）
+        String countdownText = String.valueOf(countDownSeconds);
+        FontMetrics fm = g.getFontMetrics(countdownFont);
+        int textWidth = fm.stringWidth(countdownText);
+        int textHeight = fm.getHeight();
+        int x = (getWidth() - textWidth) / 2;
+        int y = (getHeight() - textHeight) / 2 + fm.getAscent();
+        
+        // 添加文本阴影效果增强可见性
+        g.setColor(new Color(0, 0, 0, 180));
+        g.drawString(countdownText, x + 5, y + 5);
+        
+        // 根据剩余时间变化颜色
+        Color textColor;
+        if (countDownSeconds > 2) {
+            textColor = new Color(0, 200, 0); // 绿色
+        } else if (countDownSeconds > 1) {
+            textColor = new Color(255, 165, 0); // 橙色
+        } else {
+            textColor = new Color(255, 0, 0); // 红色
+        }
+        g.setColor(textColor);
+        
+        // 创建淡入淡出效果
+        long elapsedTime = System.currentTimeMillis() - countDownStartTime;
+        int fadeTime = 1000; // 每秒的淡入淡出时间
+        int currentSecondElapsed = (int)(elapsedTime % fadeTime);
+        float alpha = 1.0f;
+        
+        // 在每秒的后半段逐渐淡出
+        if (currentSecondElapsed > fadeTime / 2) {
+            alpha = 1.0f - (currentSecondElapsed - fadeTime / 2) / (float)(fadeTime / 2);
+        }
+        
+        // 应用透明度
+        if (g instanceof Graphics2D) {
+            ((Graphics2D) g).setComposite(AlphaComposite.getInstance(
+                    AlphaComposite.SRC_OVER, alpha));
+        }
+        
+        // 绘制倒计时数字
+        g.drawString(countdownText, x, y);
+        
+        // 恢复原始设置
+        if (g instanceof Graphics2D) {
+            ((Graphics2D) g).setComposite(AlphaComposite.getInstance(
+                    AlphaComposite.SRC_OVER, 1.0f));
+        }
+        g.setColor(originalColor);
     }
 
     public void startGame() {
@@ -673,8 +747,55 @@ public class PVPMode extends JPanel {
             createInitialEnemies();
         }
         
+        // 开始倒计时而不是直接启动游戏
+        startCountDown();
+    }
+
+    /**
+     * 开始倒计时
+     */
+    private void startCountDown() {
+        // 设置倒计时状态
+        isCountingDown = true;
+        countDownSeconds = 3;
+        countDownStartTime = System.currentTimeMillis();
+        
+        // 确保游戏不会在倒计时期间运行
+        gameRunning = false;
+        
+        // 请求焦点，使键盘输入有效
+        requestFocus();
+        
+        // 创建倒计时定时器，每秒触发一次
+        if (countDownTimer != null) {
+            countDownTimer.stop();
+        }
+        
+        countDownTimer = new Timer(1000, e -> {
+            countDownSeconds--;
+            repaint(); // 刷新显示
+            
+            if (countDownSeconds <= 0) {
+                // 倒计时结束，停止定时器
+                ((Timer)e.getSource()).stop();
+                // 真正启动游戏
+                finalizeGameStart();
+                isCountingDown = false;
+            }
+        });
+        
+        countDownTimer.setRepeats(true);
+        countDownTimer.start();
+        repaint(); // 立即刷新显示第一个数字
+    }
+
+    /**
+     * 倒计时结束后真正启动游戏
+     */
+    private void finalizeGameStart() {
         gameRunning = true;
         gameTimer.start();
+        System.out.println("倒计时结束，游戏开始!");
     }
 
     public void stopGame() {

@@ -44,6 +44,15 @@ public class PVEMode extends JPanel implements KeyListener {
     // 调试标记
     private boolean debugMode = false;
 
+    // 添加暂停状态标志
+    private boolean isPaused = false;
+
+    // 添加以下成员变量到类顶部
+    private boolean isCountingDown = false;
+    private int countDownSeconds = 3;
+    private Timer countDownTimer;
+    private long countDownStartTime;
+
     /**
      * 构造函数
      */
@@ -404,14 +413,11 @@ public class PVEMode extends JPanel implements KeyListener {
             int bulletCenterX = bulletBounds.x + bulletBounds.width / 2;
             int bulletCenterY = bulletBounds.y + bulletBounds.height / 2;
             
-            // 预测下一位置
-            int nextX = (int)(bulletCenterX + dx * speed);
-            int nextY = (int)(bulletCenterY + dy * speed);
+            // 预测下一位置 - 使用完整路径而不仅是下一帧
+            int nextX = (int)(bulletCenterX + dx * speed * 1.2); // 增加预测距离
+            int nextY = (int)(bulletCenterY + dy * speed * 1.2);
             
-            // 计算子弹轨迹包围盒，用于快速排除不可能碰撞的墙体
-            Rectangle pathBounds = expandBulletPath(bulletBounds, dx, dy, speed);
-            
-            // 检测碰撞
+            // 使用射线检测与墙体的碰撞
             BulletCollisionResult collision = detectBulletCollision(
                 bulletCenterX, bulletCenterY, nextX, nextY, bullet.getRadius());
             
@@ -421,7 +427,7 @@ public class PVEMode extends JPanel implements KeyListener {
             }
         }
         
-        // 检测AI子弹与墙体碰撞
+        // 检测AI子弹与墙体碰撞 (类似逻辑)
         if (aiTank != null) {
             for (EnemyBullet bullet : aiTank.getBullets()) {
                 if (!bullet.isActive()) continue;
@@ -439,14 +445,11 @@ public class PVEMode extends JPanel implements KeyListener {
                 int bulletCenterX = bulletBounds.x + bulletBounds.width / 2;
                 int bulletCenterY = bulletBounds.y + bulletBounds.height / 2;
                 
-                // 预测下一位置
-                int nextX = (int)(bulletCenterX + dx * speed);
-                int nextY = (int)(bulletCenterY + dy * speed);
+                // 预测下一位置 - 使用完整路径而不仅是下一帧
+                int nextX = (int)(bulletCenterX + dx * speed * 1.2); // 增加预测距离
+                int nextY = (int)(bulletCenterY + dy * speed * 1.2);
                 
-                // 计算子弹轨迹包围盒，用于快速排除不可能碰撞的墙体
-                Rectangle pathBounds = expandBulletPath(bulletBounds, dx, dy, speed);
-                
-                // 检测碰撞
+                // 使用射线检测与墙体的碰撞
                 BulletCollisionResult collision = detectBulletCollision(
                     bulletCenterX, bulletCenterY, nextX, nextY, bullet.getRadius());
                 
@@ -667,20 +670,20 @@ public class PVEMode extends JPanel implements KeyListener {
             g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
         }
         
-        // 只在游戏运行时绘制墙体
-        if (gameRunning && walls != null) {
+        // 只在游戏运行或倒计时时绘制墙体
+        if ((gameRunning || isCountingDown) && walls != null) {
             for (PVEWall wall : walls) {
                 wall.draw(g);
             }
         }
         
-        // 只有在游戏运行时才绘制玩家坦克
-        if (gameRunning && player != null) {
+        // 只有在游戏运行或倒计时时才绘制玩家坦克
+        if ((gameRunning || isCountingDown) && player != null) {
             player.draw(g);
         }
         
-        // 只在游戏运行时绘制AI坦克
-        if (gameRunning && aiTank != null) {
+        // 只在游戏运行或倒计时时绘制AI坦克
+        if ((gameRunning || isCountingDown) && aiTank != null) {
             aiTank.draw(g);
         }
         
@@ -690,6 +693,11 @@ public class PVEMode extends JPanel implements KeyListener {
         // 如果是调试模式，绘制调试信息
         if (debugMode) {
             drawDebugInfo(g);
+        }
+        
+        // 绘制倒计时
+        if (isCountingDown) {
+            drawCountDown(g);
         }
     }
 
@@ -758,6 +766,16 @@ public class PVEMode extends JPanel implements KeyListener {
      * 开始游戏
      */
     public void startGame() {
+        // 如果是从暂停状态恢复，直接继续游戏
+        if (isPaused) {
+            gameRunning = true;
+            gameTimer.start();
+            isPaused = false;
+            requestFocus();
+            System.out.println("游戏已恢复");
+            return;
+        }
+        
         // 确保游戏区域尺寸已更新
         gameAreaWidth = getWidth();
         gameAreaHeight = getHeight();
@@ -782,28 +800,147 @@ public class PVEMode extends JPanel implements KeyListener {
         // 确保坦克在游戏区域内
         checkAndAdjustTankPositions();
         
-        // 只在游戏未运行时才启动
-        if (!gameRunning) {
-            gameRunning = true;
-            gameTimer.start();
-            requestFocus();
+        // 开始倒计时而不是直接启动游戏
+        startCountDown();
+    }
+    
+    /**
+     * 开始倒计时
+     */
+    private void startCountDown() {
+        // 设置倒计时状态
+        isCountingDown = true;
+        countDownSeconds = 3;
+        countDownStartTime = System.currentTimeMillis();
+        gameRunning = false; // 确保游戏不会在倒计时期间运行
+        
+        // 请求焦点，使键盘输入有效
+        requestFocus();
+        
+        // 创建倒计时定时器，每秒触发一次
+        if (countDownTimer != null) {
+            countDownTimer.stop();
         }
+        
+        countDownTimer = new Timer(1000, e -> {
+            countDownSeconds--;
+            // 播放倒计时音效（如果有）
+            playCountdownSound();
+            
+            if (countDownSeconds <= 0) {
+                // 倒计时结束，停止定时器
+                ((Timer)e.getSource()).stop();
+                // 真正启动游戏
+                finalizeGameStart();
+                isCountingDown = false;
+            }
+            repaint(); // 刷新显示
+        });
+        
+        countDownTimer.setRepeats(true);
+        countDownTimer.start();
+        repaint(); // 立即刷新显示第一个数字
+    }
+
+    /**
+     * 播放倒计时音效
+     */
+    private void playCountdownSound() {
+        // 这里可以添加倒计时音效代码
+        // 例如使用Java Sound API播放"beep"声音
+    }
+
+    /**
+     * 倒计时结束后真正启动游戏
+     */
+    private void finalizeGameStart() {
+        gameRunning = true;
+        gameTimer.start();
+        System.out.println("倒计时结束，游戏开始!");
+    }
+
+    /**
+     * 绘制倒计时数字
+     */
+    private void drawCountDown(Graphics g) {
+        // 保存原始颜色
+        Color originalColor = g.getColor();
+        
+        // 设置倒计时文本属性
+        int fontSize = Math.min(gameAreaWidth, gameAreaHeight) / 5; // 根据游戏区域大小调整字体
+        Font countdownFont = new Font("Arial", Font.BOLD, fontSize);
+        g.setFont(countdownFont);
+        
+        // 计算文本绘制位置（居中）
+        String countdownText = String.valueOf(countDownSeconds);
+        FontMetrics fm = g.getFontMetrics(countdownFont);
+        int textWidth = fm.stringWidth(countdownText);
+        int textHeight = fm.getHeight();
+        int x = (gameAreaWidth - textWidth) / 2;
+        int y = (gameAreaHeight - textHeight) / 2 + fm.getAscent();
+        
+        // 添加文本阴影效果增强可见性
+        g.setColor(new Color(0, 0, 0, 180));
+        g.drawString(countdownText, x + 5, y + 5);
+        
+        // 根据剩余时间变化颜色
+        Color textColor;
+        if (countDownSeconds > 2) {
+            textColor = new Color(0, 200, 0); // 绿色
+        } else if (countDownSeconds > 1) {
+            textColor = new Color(255, 165, 0); // 橙色
+        } else {
+            textColor = new Color(255, 0, 0); // 红色
+        }
+        g.setColor(textColor);
+        
+        // 创建淡入淡出效果
+        long elapsedTime = System.currentTimeMillis() - countDownStartTime;
+        int fadeTime = 1000; // 每秒的淡入淡出时间
+        int currentSecondElapsed = (int)(elapsedTime % fadeTime);
+        float alpha = 1.0f;
+        
+        // 在每秒的后半段逐渐淡出
+        if (currentSecondElapsed > fadeTime / 2) {
+            alpha = 1.0f - (currentSecondElapsed - fadeTime / 2) / (float)(fadeTime / 2);
+        }
+        
+        // 应用透明度
+        if (g instanceof Graphics2D) {
+            ((Graphics2D) g).setComposite(AlphaComposite.getInstance(
+                    AlphaComposite.SRC_OVER, alpha));
+        }
+        
+        // 绘制倒计时数字
+        g.drawString(countdownText, x, y);
+        
+        // 恢复原始设置
+        if (g instanceof Graphics2D) {
+            ((Graphics2D) g).setComposite(AlphaComposite.getInstance(
+                    AlphaComposite.SRC_OVER, 1.0f));
+        }
+        g.setColor(originalColor);
     }
     
     /**
      * 暂停游戏
      */
     public void stopGame() {
-        gameRunning = false;
-        gameTimer.stop();
+        if (gameRunning) {
+            gameRunning = false;
+            gameTimer.stop();
+            isPaused = true; // 标记为暂停状态
+            System.out.println("游戏已暂停");
+        }
     }
     
     /**
-     * 结束游戏
+     * 结束游戏 - 保持不变，完全结束游戏用
      */
     public void endGame() {
         gameRunning = false;
         gameTimer.stop();
+        isPaused = false; // 重置暂停状态
         
         // 清除所有爆炸效果
         ExplosionManager.getInstance().clearAllExplosions();
@@ -913,15 +1050,15 @@ public class PVEMode extends JPanel implements KeyListener {
             moveY /= moveLength;
         }
         
-        // 首先检查所有墙体
+        // 检查所有墙体
         for (PVEWall wall : walls) {
-            // 对于非实心墙体，需要检查每个段落
             if (!wall.isSolid()) {
+                // 非实心墙体检查每个段落
                 for (Rectangle segment : wall.getSegments()) {
                     checkSegmentCollision(result, startX, startY, endX, endY, bulletRadius, segment, moveX, moveY);
                 }
             } else {
-                // 实心墙体直接检查整个碰撞边界
+                // 实心墙体直接检查边界
                 Rectangle wallBounds = wall.getCollisionBounds();
                 checkSegmentCollision(result, startX, startY, endX, endY, bulletRadius, wallBounds, moveX, moveY);
             }
@@ -1010,7 +1147,7 @@ public class PVEMode extends JPanel implements KeyListener {
             result.normalY = 1;
         }
         
-        // 处理超薄墙体的特殊情况 - 如果墙体在某个维度上很薄
+        // 处理超薄墙体的特殊情况
         if (wall.width < 10) {
             // 对于非常窄的墙，强制使用水平法线
             result.normalX = moveX > 0 ? -1 : 1;
@@ -1022,6 +1159,137 @@ public class PVEMode extends JPanel implements KeyListener {
         }
     }
     
+    /**
+     * 处理子弹反弹
+     */
+    private void processBulletBounce(PlayerBullet bullet, BulletCollisionResult collision) {
+        // 获取子弹当前角度
+        double angle = bullet.getAngle();
+        
+        // 计算入射向量
+        double incidentX = Math.sin(angle);
+        double incidentY = -Math.cos(angle);
+        
+        // 计算反射向量 R = I - 2(I·N)N
+        double dot = incidentX * collision.normalX + incidentY * collision.normalY;
+        double reflectX = incidentX - 2 * dot * collision.normalX;
+        double reflectY = incidentY - 2 * dot * collision.normalY;
+        
+        // 计算新角度
+        double newAngle = Math.atan2(reflectX, -reflectY);
+        
+        // 规范化角度到0-2π
+        newAngle = (newAngle + 2 * Math.PI) % (2 * Math.PI);
+        
+        // 设置新角度
+        bullet.setAngle(newAngle);
+        
+        // 计算子弹新位置 - 防止卡墙
+        double safetyMultiplier = 2.0; // 增加安全距离系数
+        double offsetX = collision.normalX * (collision.penetrationDepth * safetyMultiplier);
+        double offsetY = collision.normalY * (collision.penetrationDepth * safetyMultiplier);
+        
+        // 如果是超薄墙体，增加额外偏移以防止穿墙
+        if (collision.collidedRect != null) {
+            if (collision.collidedRect.width < 10 || collision.collidedRect.height < 10) {
+                offsetX *= 2;
+                offsetY *= 2;
+            }
+        }
+        
+        // 设置子弹位置，确保不会卡在墙内
+        bullet.setPosition((int)(collision.collisionX + offsetX), (int)(collision.collisionY + offsetY));
+        
+        // 减少速度模拟能量损失
+        bullet.decreaseSpeed(0.9);
+        
+        // 增加反弹计数
+        bullet.bounce();
+    }
+
+    /**
+     * 处理敌方子弹的反弹
+     */
+    private void processEnemyBulletBounce(EnemyBullet bullet, BulletCollisionResult collision) {
+        // 获取子弹当前角度
+        double angle = bullet.getAngle();
+        double speed = bullet.getSpeed();
+        
+        // 计算入射向量
+        double incidentX = Math.sin(angle);
+        double incidentY = -Math.cos(angle);
+        
+        // 计算反射向量 R = I - 2(I·N)N
+        double dot = incidentX * collision.normalX + incidentY * collision.normalY;
+        double reflectX = incidentX - 2 * dot * collision.normalX;
+        double reflectY = incidentY - 2 * dot * collision.normalY;
+        
+        // 计算新角度
+        double newAngle = Math.atan2(reflectX, -reflectY);
+        
+        // 规范化角度到0-2π
+        newAngle = (newAngle + 2 * Math.PI) % (2 * Math.PI);
+        
+        // 设置新角度
+        bullet.setAngle(newAngle);
+        
+        // 计算子弹新位置 - 防止卡墙
+        double safetyMultiplier = 1.5; // 额外安全距离系数
+        double offsetX = collision.normalX * (collision.penetrationDepth * safetyMultiplier);
+        double offsetY = collision.normalY * (collision.penetrationDepth * safetyMultiplier);
+        
+        // 如果是超薄墙体，增加额外偏移以防止穿墙
+        if (collision.collidedRect != null) {
+            if (collision.collidedRect.width < 10 || collision.collidedRect.height < 10) {
+                offsetX *= 2;
+                offsetY *= 2;
+            }
+        }
+        
+        // 设置子弹位置，确保不会卡在墙内
+        bullet.setPosition((int)(collision.collisionX + offsetX), (int)(collision.collisionY + offsetY));
+        
+        // 减少速度模拟能量损失（每次反弹损失10%能量）
+        bullet.decreaseSpeed(0.9);
+        
+        // 增加反弹计数
+        bullet.bounce();
+
+    }
+    
+    /**
+     * 计算子弹轨迹包围盒，用于快速排除不可能碰撞的墙体
+     */
+    private Rectangle expandBulletPath(Rectangle bulletBounds, double dx, double dy, double speed) {
+        // 计算子弹完整路径的包围盒
+        int x = bulletBounds.x;
+        int y = bulletBounds.y;
+        int width = bulletBounds.width;
+        int height = bulletBounds.height;
+        
+        // 如果是向右移动
+        if (dx > 0) {
+            width += (int)(dx * speed);
+        } 
+        // 如果是向左移动
+        else if (dx < 0) {
+            x += (int)(dx * speed);
+            width -= (int)(dx * speed);
+        }
+        
+        // 如果是向下移动
+        if (dy > 0) {
+            height += (int)(dy * speed);
+        } 
+        // 如果是向上移动
+        else if (dy < 0) {
+            y += (int)(dy * speed);
+            height -= (int)(dy * speed);
+        }
+        
+        return new Rectangle(x, y, width, height);
+    }
+
     /**
      * 子弹碰撞结果类
      */
@@ -1143,7 +1411,7 @@ public class PVEMode extends JPanel implements KeyListener {
      */
     private double calculatePenetrationDepth(
             double hitX, double hitY, Rectangle wall, double normalX, double normalY) {
-    
+
         // 计算从碰撞点沿法线方向到墙体边缘的距离
         double depth = 0;
         
@@ -1158,7 +1426,7 @@ public class PVEMode extends JPanel implements KeyListener {
         }
         
         // 增加一点额外的偏移量以确保完全脱离墙体
-        return depth + 2.0;
+        return depth + 3.0;
     }
     
     /**
@@ -1226,138 +1494,5 @@ public class PVEMode extends JPanel implements KeyListener {
                 result.penetrationDepth = bulletRadius;
             }
         }
-    }
-    
-    /**
-     * 处理玩家子弹的反弹
-     */
-    private void processBulletBounce(PlayerBullet bullet, BulletCollisionResult collision) {
-        // 获取子弹当前角度和速度
-        double angle = bullet.getAngle();
-        double speed = bullet.getSpeed();
-        
-        // 计算入射向量
-        double incidentX = Math.sin(angle);
-        double incidentY = -Math.cos(angle);
-        
-        // 计算反射向量 R = I - 2(I·N)N
-        double dot = incidentX * collision.normalX + incidentY * collision.normalY;
-        double reflectX = incidentX - 2 * dot * collision.normalX;
-        double reflectY = incidentY - 2 * dot * collision.normalY;
-        
-        // 计算新角度
-        double newAngle = Math.atan2(reflectX, -reflectY);
-        
-        // 规范化角度到0-2π
-        newAngle = (newAngle + 2 * Math.PI) % (2 * Math.PI);
-        
-        // 设置新角度
-        bullet.setAngle(newAngle);
-        
-        // 计算子弹新位置 - 防止卡墙
-        double safetyMultiplier = 1.5; // 额外安全距离系数
-        double offsetX = collision.normalX * (collision.penetrationDepth * safetyMultiplier);
-        double offsetY = collision.normalY * (collision.penetrationDepth * safetyMultiplier);
-        
-        // 如果是超薄墙体，增加额外偏移以防止穿墙
-        if (collision.collidedRect != null) {
-            if (collision.collidedRect.width < 10 || collision.collidedRect.height < 10) {
-                offsetX *= 2;
-                offsetY *= 2;
-            }
-        }
-        
-        // 设置子弹位置，确保不会卡在墙内
-        bullet.setPosition((int)(collision.collisionX + offsetX), (int)(collision.collisionY + offsetY));
-        
-        // 减少速度模拟能量损失（每次反弹损失10%能量）
-        bullet.decreaseSpeed(0.9);
-        
-        // 增加反弹计数
-        bullet.bounce();
-
-    }
-
-    /**
-     * 处理敌方子弹的反弹
-     */
-    private void processEnemyBulletBounce(EnemyBullet bullet, BulletCollisionResult collision) {
-        // 获取子弹当前角度和速度
-        double angle = bullet.getAngle();
-        double speed = bullet.getSpeed();
-        
-        // 计算入射向量
-        double incidentX = Math.sin(angle);
-        double incidentY = -Math.cos(angle);
-        
-        // 计算反射向量 R = I - 2(I·N)N
-        double dot = incidentX * collision.normalX + incidentY * collision.normalY;
-        double reflectX = incidentX - 2 * dot * collision.normalX;
-        double reflectY = incidentY - 2 * dot * collision.normalY;
-        
-        // 计算新角度
-        double newAngle = Math.atan2(reflectX, -reflectY);
-        
-        // 规范化角度到0-2π
-        newAngle = (newAngle + 2 * Math.PI) % (2 * Math.PI);
-        
-        // 设置新角度
-        bullet.setAngle(newAngle);
-        
-        // 计算子弹新位置 - 防止卡墙
-        double safetyMultiplier = 1.5; // 额外安全距离系数
-        double offsetX = collision.normalX * (collision.penetrationDepth * safetyMultiplier);
-        double offsetY = collision.normalY * (collision.penetrationDepth * safetyMultiplier);
-        
-        // 如果是超薄墙体，增加额外偏移以防止穿墙
-        if (collision.collidedRect != null) {
-            if (collision.collidedRect.width < 10 || collision.collidedRect.height < 10) {
-                offsetX *= 2;
-                offsetY *= 2;
-            }
-        }
-        
-        // 设置子弹位置，确保不会卡在墙内
-        bullet.setPosition((int)(collision.collisionX + offsetX), (int)(collision.collisionY + offsetY));
-        
-        // 减少速度模拟能量损失（每次反弹损失10%能量）
-        bullet.decreaseSpeed(0.9);
-        
-        // 增加反弹计数
-        bullet.bounce();
-
-    }
-    
-    /**
-     * 计算子弹轨迹包围盒，用于快速排除不可能碰撞的墙体
-     */
-    private Rectangle expandBulletPath(Rectangle bulletBounds, double dx, double dy, double speed) {
-        // 计算子弹完整路径的包围盒
-        int x = bulletBounds.x;
-        int y = bulletBounds.y;
-        int width = bulletBounds.width;
-        int height = bulletBounds.height;
-        
-        // 如果是向右移动
-        if (dx > 0) {
-            width += (int)(dx * speed);
-        } 
-        // 如果是向左移动
-        else if (dx < 0) {
-            x += (int)(dx * speed);
-            width -= (int)(dx * speed);
-        }
-        
-        // 如果是向下移动
-        if (dy > 0) {
-            height += (int)(dy * speed);
-        } 
-        // 如果是向上移动
-        else if (dy < 0) {
-            y += (int)(dy * speed);
-            height -= (int)(dy * speed);
-        }
-        
-        return new Rectangle(x, y, width, height);
     }
 }

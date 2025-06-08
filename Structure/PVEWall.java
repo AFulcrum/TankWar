@@ -449,21 +449,22 @@ public class PVEWall {
      * 绘制墙体
      */
     public void draw(Graphics g) {
-        // 将黑色墙体改为灰白色
-        g.setColor(new Color(220, 220, 220)); // 灰白色
+        // 确保墙体渲染清晰可见
+        // 设置墙体填充颜色
+        g.setColor(new Color(230, 230, 230)); // 更亮的灰白色
         
         if (isSolid) {
             // 实心墙直接填充整个矩形
             g.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
             // 添加边框使墙体更清晰
-            g.setColor(new Color(180, 180, 180));
+            g.setColor(new Color(160, 160, 160)); // 更暗的边框色
             g.drawRect(bounds.x, bounds.y, bounds.width, bounds.height);
         } else {
             // 复杂形状墙体分段绘制
             for (Rectangle segment : segments) {
                 g.fillRect(segment.x, segment.y, segment.width, segment.height);
                 // 添加边框
-                g.setColor(new Color(180, 180, 180));
+                g.setColor(new Color(160, 160, 160)); // 更暗的边框色
                 g.drawRect(segment.x, segment.y, segment.width, segment.height);
             }
         }

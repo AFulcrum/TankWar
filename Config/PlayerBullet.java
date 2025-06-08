@@ -94,24 +94,20 @@ public class PlayerBullet implements Bullet {
         double dx = Math.sin(angle);
         double dy = -Math.cos(angle);
 
-        // 保存反弹前的位置，用于计算穿透深度
-        int prevX = x;
-        int prevY = y;
-
         // 判断反弹方向并确定更精确的后退距离
         if (Math.abs(dx) > Math.abs(dy)) {
             // 水平方向反弹
             angle = Math.PI - angle;
-
-            // 计算水平穿透的深度并调整位置
-            int penetrationDepth = Math.max(6, (int)(speed * Math.abs(dx) * 1.2));
+            
+            // 增加穿透距离计算，防止卡墙
+            int penetrationDepth = Math.max(10, (int)(speed * Math.abs(dx) * 1.5));
             x -= (int)(Math.signum(dx) * penetrationDepth);
         } else {
             // 垂直方向反弹
             angle = -angle;
-
-            // 计算垂直穿透的深度并调整位置
-            int penetrationDepth = Math.max(6, (int)(speed * Math.abs(dy) * 1.2));
+            
+            // 增加穿透距离计算，防止卡墙
+            int penetrationDepth = Math.max(10, (int)(speed * Math.abs(dy) * 1.5));
             y += (int)(Math.signum(dy) * penetrationDepth);
         }
 
@@ -120,6 +116,9 @@ public class PlayerBullet implements Bullet {
 
         // 增加反弹计数
         bounceCount++;
+        
+        // 每次反弹略微减速，模拟能量损失
+        speed = Math.max(5, (int)(speed * 0.95));
     }
 
     @Override

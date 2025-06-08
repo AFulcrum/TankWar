@@ -76,10 +76,13 @@ public class SimpleCollisionDetector implements CollisionDetector {
     public boolean isCollidingExcludeTanks(int x, int y, int width, int height) {
         if (gameAreaSize == null) return false;
 
+        // 增加安全边距，确保不会刚好卡在边界
+        int safetyMargin = 3; // 增加边界安全距离
+
         // 检查边界碰撞
-        if (x < 2 || y < 2 ||
-                x + width > gameAreaSize.width - 2 ||
-                y + height > gameAreaSize.height - 2) {
+        if (x < safetyMargin || y < safetyMargin ||
+                x + width > gameAreaSize.width - safetyMargin ||
+                y + height > gameAreaSize.height - safetyMargin) {
             return true;
         }
 
