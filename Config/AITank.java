@@ -10,7 +10,7 @@ import java.util.List;
 
 public class AITank extends AbstractTank {
     // 图像和方向
-    private double angle = 0; // 0表示向上，顺时针为正
+    private double angle = 0; // 0表示向右，逆时针为正（数学坐标系）
     private final String tankPath = "/Images/TankImage/EnemyTank/tankR.gif";
     private Image tankImage;
     
@@ -21,7 +21,7 @@ public class AITank extends AbstractTank {
     
     // 子弹管理
     private List<EnemyBullet> bullets;
-    private static final int FIRE_INTERVAL = 1500; // 发射间隔1.5秒
+    private static final int FIRE_INTERVAL = 2500; // 发射间隔2.5秒
     
     // 时间控制
     private long lastActionTime = 0;
@@ -116,6 +116,8 @@ public class AITank extends AbstractTank {
             }
             ImageIcon icon = new ImageIcon(url);
             tankImage = icon.getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH);
+            
+            // 不需要额外旋转，因为tankR.gif已经是向右朝向
         } catch (Exception e) {
             System.err.println("无法加载AI坦克图像: " + e.getMessage());
         }
@@ -589,12 +591,12 @@ public class AITank extends AbstractTank {
         double distance = Math.sqrt(dx * dx + dy * dy);
 
         if (distance > 0) {
-            // 计算角度 - 将数学坐标系转换为游戏坐标系
+            // 计算角度 - 使用数学坐标系（0度为右）
             this.angle = Math.atan2(dy, dx);
             
-            // 使用游戏坐标系计算移动 (旋转90度)
-            int newX = (int)(x + Math.sin(this.angle - Math.PI/2) * currentSpeed * speedFactor);
-            int newY = (int)(y - Math.cos(this.angle - Math.PI/2) * currentSpeed * speedFactor);
+            // 直接使用标准三角函数计算
+            int newX = (int)(x + Math.cos(this.angle) * currentSpeed * speedFactor);
+            int newY = (int)(y + Math.sin(this.angle) * currentSpeed * speedFactor);
 
             if (checkCollision(newX, newY)) {
                 x = newX;
@@ -846,40 +848,30 @@ public class AITank extends AbstractTank {
             return false;
         }
 
-        // 增加基础射击概率
-        double baseProb = 0.5 * levelFactor; // 从0.3提高到0.5
+        // 基础射击概率（提高到0.6）
+        double baseProb = 0.6 * levelFactor;
 
-        // 最佳射击距离范围
+        // 最佳射击距离
         double optimalDistance = 200;
         double distanceFactor = 1 - Math.min(1, Math.abs(distance - optimalDistance) / 300);
 
-        // 计算角度差
+        // 角度差计算
         double angleDiff = Math.abs(normalizeAngle(angle - angleToPlayer));
+        double angleFactor = Math.max(0, 1 - (angleDiff / (Math.PI/1.5)));
 
-        // 提高角度容忍度，增加射击机会
-        double angleFactor = Math.max(0, 1 - (angleDiff / (Math.PI/1.5))); // 增加角度容忍度
-
-        // 从权重中获取值
-        double shootWeight = weights.getOrDefault("shoot", 0.9); // 增加默认射击权重
-
-        // 综合射击概率
+        // 综合射击概率计算
         double shootProb = baseProb *
-                (0.4 + 0.3 * distanceFactor + 0.3 * angleFactor) * // 调整各因素权重
-                (0.6 + precision * 0.4) * // 提高精度影响
-                (0.6 + aggressiveness * 0.4) * // 提高攻击性影响
-                shootWeight;
+                (0.4 + 0.3 * distanceFactor + 0.3 * angleFactor) *
+                (0.6 + precision * 0.4) *
+                (0.6 + aggressiveness * 0.4) *
+                weights.getOrDefault("shoot", 0.9);
 
-        // 提高特殊情况下的射击概率
-        if (player.getHealth() < 50) {
-            shootProb *= 1.5; // 玩家低生命值时更积极射击
-        }
+        // 特殊情况调整
+        if (player.getHealth() < 50) shootProb *= 1.5;
+        if (health < 0.3) shootProb *= 0.8;
 
-        if (health < 0.3) {
-            shootProb *= 0.8; // 提高自身低生命值时的射击频率
-        }
-
-        // 确保最低射击概率，防止长时间不射击
-        return random.nextDouble() < Math.max(0.3, shootProb);
+        // 确保最低射击概率
+        return random.nextDouble() < Math.max(0.35, shootProb);
     }
     
     /**
@@ -1304,19 +1296,19 @@ public class AITank extends AbstractTank {
     public void fire(PlayerTank player) {
         long currentTime = System.currentTimeMillis();
         if (currentTime - lastFireTime >= FIRE_INTERVAL) {
-            // 计算炮管位置
+            // 计算炮管前端位置 - 保证子弹从正前方射出
             int barrelLength = width / 2 + 5;
-            int bulletX = (int) (x + width / 2 + Math.sin(angle) * barrelLength);
-            int bulletY = (int) (y + height / 2 - Math.cos(angle) * barrelLength);
+            int bulletX = (int) (x + width / 2 + Math.cos(angle) * barrelLength);
+            int bulletY = (int) (y + height / 2 + Math.sin(angle) * barrelLength);
 
-            // 检查子弹生成位置是否与玩家坦克重叠，如果重叠则不发射
+            // 检查子弹生成位置是否与玩家坦克重叠
             Rectangle bulletBounds = new Rectangle(bulletX-5, bulletY-5, 10, 10);
             if (player != null && player.isAlive() && 
                 player.getCollisionBounds().intersects(bulletBounds)) {
-                return; // 如果子弹会在玩家内部生成，取消本次射击
+                return; // 取消本次射击
             }
 
-            // 其余子弹创建代码不变
+            // 创建子弹 - 使用坦克当前角度作为射击方向
             double spreadFactor = (1.0 - precision) * 0.2;
             double randomSpread = (random.nextDouble() - 0.5) * spreadFactor;
             double fireAngle = angle + randomSpread + predictFactor;
@@ -1381,18 +1373,16 @@ public class AITank extends AbstractTank {
         // 变换坐标系到坦克中心
         g2d.translate(centerX, centerY);
         
-        // 旋转 - 由于坦克图片默认朝上，角度不需要额外调整
+        // 旋转 - 图片默认朝右，角度定义为0度朝右，直接使用当前角度
         g2d.rotate(angle);
         
-        // 绘制坦克 - 确保图片中心与旋转中心一致
+        // 绘制坦克
         g2d.drawImage(tankImage, -width / 2, -height / 2, width, height, null);
         
-        // 调试模式绘制信息
-        if (ConfigTool.isDebugMode()) {
-            drawDebugInfo(g2d);
-        }
-        
         g2d.dispose();
+        
+        // 绘制子弹
+        drawBullets(g);
     }
 
     @Override

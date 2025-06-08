@@ -21,7 +21,7 @@ public class EnemyBullet implements Bullet {
     private int bounceCount = 0;
     private static final int MAX_BOUNCE = 66; // 最大反弹次数
     private double travelDistance = 0;
-    private double minCollisionDistance = 40; // 最小碰撞距离设置为40像素
+    private double minCollisionDistance = 20;
 
     public EnemyBullet(int x, int y, double angle) {
         this.x = x - width/2;
@@ -157,5 +157,10 @@ public class EnemyBullet implements Bullet {
 
     public boolean canCollide() {
         return active && travelDistance >= minCollisionDistance;
+    }
+
+    // 添加获取子弹已飞行距离的方法
+    public double getTravelDistance() {
+        return travelDistance;
     }
 }

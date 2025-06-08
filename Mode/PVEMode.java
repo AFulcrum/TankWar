@@ -479,31 +479,34 @@ public class PVEMode extends JPanel implements KeyListener {
             for (EnemyBullet bullet : aiTank.getBullets()) {
                 if (!bullet.isActive()) continue;
                 
-                // 添加两个条件:
-                // 1. 确保子弹可以碰撞(已有的检查)
-                // 2. 检查子弹是否是刚生成就已经在玩家坦克内部或非常接近
+                // 简化判断条件，子弹已飞行足够距离且不是刚生成时就在坦克内部
                 if (!bullet.canCollide() || isBulletTooCloseToTank(bullet, player)) {
                     continue;
                 }
                 
-                if (bullet.getCollisionBounds().intersects(player.getCollisionBounds())) {
-                    // 击中玩家坦克
-                    bullet.deactivate();
+                // 检查碰撞
+                Rectangle bulletBounds = bullet.getCollisionBounds();
+                Rectangle playerBounds = player.getCollisionBounds();
+                
+                if (bulletBounds != null && playerBounds != null && 
+                    bulletBounds.intersects(playerBounds)) {
                     
-                    // 创建爆炸效果
+                    // 子弹击中玩家，创建爆炸效果
+                    bullet.deactivate();
                     createExplosion(player);
                     
-                    // 设置玩家为死亡状态
-                    player.setAlive(false);
+                    // 调用AI的registerHit方法记录命中
+                    aiTank.registerHit();
                     
-                    // 重置玩家坦克的键盘状态
+                    // 设置玩家死亡并重置键盘状态
+                    player.setAlive(false);
                     player.resetKeyStates();
                     
                     // 更新分数
                     enemyScore++;
                     ConfigTool.setEnemyScore(String.valueOf(enemyScore));
                     
-                    // 检查是否达到游戏结束条件（玩家被击中10次）
+                    // 检查游戏结束条件
                     if (enemyScore >= SCORE_TO_LOSE) {
                         gameOver();
                         return;
@@ -513,6 +516,9 @@ public class PVEMode extends JPanel implements KeyListener {
                     Timer respawnTimer = new Timer(800, e -> respawnTank(player, aiTank));
                     respawnTimer.setRepeats(false);
                     respawnTimer.start();
+                    
+                    // 打印调试信息
+                    System.out.println("玩家被击中! 位置: " + player.getX() + "," + player.getY());
                     break;
                 }
             }
@@ -824,6 +830,11 @@ public class PVEMode extends JPanel implements KeyListener {
     
     // 在PVEMode.java中添加以下方法，用于检测子弹是否太靠近坦克
     private boolean isBulletTooCloseToTank(EnemyBullet bullet, PlayerTank tank) {
+        // 仅在子弹刚生成且距离太近时过滤，而不是一直过滤
+        if (bullet.getTravelDistance() > 20) { 
+            return false; // 子弹已经飞行一段距离，不再视为"太近"
+        }
+        
         // 计算子弹到坦克中心的距离
         Rectangle bulletBounds = bullet.getCollisionBounds();
         int bulletX = bulletBounds.x + bulletBounds.width / 2;
@@ -836,8 +847,8 @@ public class PVEMode extends JPanel implements KeyListener {
             Math.pow(bulletY - tankCenterY, 2)
         );
         
-        // 如果距离小于坦克半径加上一个安全距离，则认为太近
+        // 如果距离小于坦克半径加安全距离，且子弹刚生成，则认为太近
         double tankRadius = Math.max(tank.getWidth(), tank.getHeight()) / 2.0;
-        return distance < (tankRadius + 20); // 额外20像素的安全距离
+        return distance < (tankRadius + 10); // 减小安全距离到10像素
     }
 }
