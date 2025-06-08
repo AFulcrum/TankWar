@@ -92,6 +92,15 @@ public class ExplosionManager {
         }
     }
     
+    /**
+     * 清除所有活跃的爆炸效果
+     * 在游戏重置或结束时调用
+     */
+    public void clearAllExplosions() {
+        activeExplosions.clear();
+        System.out.println("已清除所有爆炸效果");
+    }
+    
     // 内部爆炸类
     private class Explosion {
         private int x, y;

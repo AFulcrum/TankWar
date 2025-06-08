@@ -613,6 +613,9 @@ public class PVPMode extends JPanel {
         gameRunning = false;
         gameTimer.stop();
         
+        // 清除所有爆炸效果
+        ExplosionManager.getInstance().clearAllExplosions();
+        
         // 显示游戏结束对话框，并在用户点击确定后返回主界面
         SwingUtilities.invokeLater(() -> {
             JOptionPane.showMessageDialog(this,
@@ -681,8 +684,10 @@ public class PVPMode extends JPanel {
         gameRunning = false;
         gameTimer.stop();
         // 不要将player设置为null，只需清空敌方坦克列表
-        // player = null; // 删除这行
         enemies.clear();
+        
+        // 清除所有爆炸效果
+        ExplosionManager.getInstance().clearAllExplosions();
     }
 
     public void resetGame() {
@@ -702,6 +707,9 @@ public class PVPMode extends JPanel {
         
         // 清空孤儿子弹列表
         orphanedBullets.clear();
+        
+        // 清除所有爆炸效果
+        ExplosionManager.getInstance().clearAllExplosions();
 
         // 重置游戏统计数据
         ConfigTool.resetGameStats();

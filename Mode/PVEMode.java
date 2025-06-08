@@ -566,6 +566,9 @@ public class PVEMode extends JPanel implements KeyListener {
         gameRunning = false;
         gameTimer.stop();
         
+        // 清除所有爆炸效果
+        ExplosionManager.getInstance().clearAllExplosions();
+        
         // 先保存AI学习数据
         if (aiTank != null) {
             aiTank.saveLearnedData();
@@ -783,6 +786,9 @@ public class PVEMode extends JPanel implements KeyListener {
         gameRunning = false;
         gameTimer.stop();
         
+        // 清除所有爆炸效果
+        ExplosionManager.getInstance().clearAllExplosions();
+        
         // 保存AI学习数据
         if (aiTank != null) {
             aiTank.saveLearnedData();
@@ -810,6 +816,9 @@ public class PVEMode extends JPanel implements KeyListener {
         
         // 重置游戏状态
         gameRunning = false;
+        
+        // 清除所有爆炸效果
+        ExplosionManager.getInstance().clearAllExplosions();
         
         // 重置游戏组件
         walls = new ArrayList<>();
