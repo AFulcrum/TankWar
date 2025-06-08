@@ -19,7 +19,7 @@ public class EnemyBullet implements Bullet {
     private Color bulletColor;
     private double dx, dy; // 方向向量
     private int bounceCount = 0;
-    private static final int MAX_BOUNCE = 66; // 最大反弹次数
+    private static final int MAX_BOUNCE = 6; // 最大反弹次数
     private double travelDistance = 0;
     private double minCollisionDistance = 20;
 
@@ -46,6 +46,7 @@ public class EnemyBullet implements Bullet {
         this.minCollisionDistance = distance;
     }
 
+    // 修改 EnemyBullet 类中的 updatePosition 方法
     @Override
     public void updatePosition() {
         if (!active) return;
@@ -53,9 +54,22 @@ public class EnemyBullet implements Bullet {
         double oldX = x;
         double oldY = y;
 
-        // 更新位置
-        x += Math.cos(angle) * speed;
-        y += Math.sin(angle) * speed;
+        // 对于高速子弹使用分步移动防止穿墙
+        if (speed > 10) {
+            // 将移动分为多个小步骤，确保不会在单帧内跳过细墙
+            int steps = (int)Math.ceil(speed / 8.0);
+            double stepSize = speed / steps;
+            
+            for (int i = 0; i < steps; i++) {
+                // 增量更新位置
+                x += Math.cos(angle) * stepSize;
+                y += Math.sin(angle) * stepSize;
+            }
+        } else {
+            // 正常速度直接更新
+            x += Math.cos(angle) * speed;
+            y += Math.sin(angle) * speed;
+        }
 
         // 计算移动距离
         double moveDist = Math.sqrt(Math.pow(x-oldX, 2) + Math.pow(y-oldY, 2));

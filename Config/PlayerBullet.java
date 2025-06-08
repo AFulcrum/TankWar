@@ -18,7 +18,7 @@ public class PlayerBullet implements Bullet {
     private Color bulletColor;
     private Image bulletImage;
     private int bounceCount = 0;
-    private static final int MAX_BOUNCE = 66; // 最大反弹次数
+    private static final int MAX_BOUNCE = 6; // 最大反弹次数
     private static final int BULLET_LIFETIME = 10000; // 子弹最大存活时间10秒
 
 

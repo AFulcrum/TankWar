@@ -1269,8 +1269,6 @@ public class AITank extends AbstractTank {
         
         // 调整反应时间和行动频率
         actionDelay = Math.max(50, 100 - currentLevel * 5); // 越高级反应越快
-        // Cannot modify FIRE_INTERVAL as it's final, you need to handle this differently
-        
         // 调整移动速度
         currentSpeed = BASE_SPEED + Math.min(3, currentLevel / 2);
         
