@@ -363,15 +363,20 @@ public class PVEMode extends JPanel implements KeyListener {
      * 更新游戏状态
      */
     private void updateGame() {
-        // 更新玩家坦克
+        // 更新玩家坦克移动 - 只在存活时更新移动
         if (player.isAlive()) {
             player.updateMovement();
-            player.updateBullets();
         }
+        // 无论玩家是否存活，都更新子弹
+        player.updateBullets();
         
         // 更新AI坦克
         if (aiTank != null && aiTank.isAlive()) {
             aiTank.updateAI(player, currentLevel);
+        }
+        // 无论AI是否存活，都更新其子弹
+        if (aiTank != null) {
+            aiTank.updateBullets();
         }
         
         // 检测碰撞
@@ -381,12 +386,6 @@ public class PVEMode extends JPanel implements KeyListener {
         // 检查得分情况
         checkScores();
         updateDisplays();
-        
-        // 再次更新子弹（确保所有子弹状态都被正确处理）
-        player.updateBullets();
-        if (aiTank != null) {
-            aiTank.updateBullets();
-        }
 
         // 更新爆炸效果
         ExplosionManager.getInstance().update();
@@ -677,14 +676,35 @@ public class PVEMode extends JPanel implements KeyListener {
             }
         }
         
-        // 只有在游戏运行或倒计时时才绘制玩家坦克
-        if ((gameRunning || isCountingDown) && player != null) {
-            player.draw(g);
-        }
-        
-        // 只在游戏运行或倒计时时绘制AI坦克
-        if ((gameRunning || isCountingDown) && aiTank != null) {
-            aiTank.draw(g);
+        // 只有在游戏运行或倒计时时绘制
+        if (gameRunning || isCountingDown) {
+            // 绘制玩家坦克（如果存活）
+            if (player != null && player.isAlive()) {
+                player.draw(g);
+            }
+            
+            // 绘制AI坦克（如果存活）
+            if (aiTank != null && aiTank.isAlive()) {
+                aiTank.draw(g);
+            }
+            
+            // 单独绘制玩家子弹 - 无论坦克是否存活
+            if (player != null) {
+                for (PlayerBullet bullet : player.getBullets()) {
+                    if (bullet.isActive()) {
+                        bullet.draw(g);
+                    }
+                }
+            }
+            
+            // 单独绘制AI子弹 - 无论坦克是否存活
+            if (aiTank != null) {
+                for (EnemyBullet bullet : aiTank.getBullets()) {
+                    if (bullet.isActive()) {
+                        bullet.draw(g);
+                    }
+                }
+            }
         }
         
         // 最后绘制爆炸效果（最高优先级）
