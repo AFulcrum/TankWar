@@ -13,8 +13,8 @@ import static Structure.ModeCardLayOut.PVPModeWidth;
 
 public class EnemyTank extends AbstractTank {
     private boolean alive = true;
-    private double angle = 0; // 当前朝向角度，0为向上，顺时针为正
-    private final String tankPath = "/Images/TankImage/EnemyTank/tankU.gif";
+    private double angle = 0; // 当前朝向角度，0为向右，逆时针为正（数学坐标系）
+    private final String tankPath = "/Images/TankImage/EnemyTank/tankR.gif";
     private Image tankImage;
     private final Random random = new Random();
     private double moveSpeed = 9; // 移动速度
@@ -41,6 +41,8 @@ public class EnemyTank extends AbstractTank {
     private int stuckCounter = 0;
     private int lastX = 0;
     private int lastY = 0;
+    private int lastPlayerX = 0;
+    private int lastPlayerY = 0;
 
     public EnemyTank(int x, int y, CollisionDetector collisionDetector) {
         super(x, y, 66, 66, 1, collisionDetector); // 敌方坦克1滴血
@@ -306,65 +308,125 @@ public class EnemyTank extends AbstractTank {
         }
 
         // 计算与玩家的角度
+        double playerCenterX = player.getX() + player.getWidth()/2;
+        double playerCenterY = player.getY() + player.getHeight()/2;
+        double tankCenterX = x + width/2;
+        double tankCenterY = y + height/2;
+        
         double playerAngle = Math.atan2(
-                (player.getX() + player.getWidth()/2) - (x + width/2),
-                -((player.getY() + player.getHeight()/2) - (y + height/2))
+                playerCenterY - tankCenterY,
+                playerCenterX - tankCenterX
         );
-        playerAngle = (playerAngle + 2 * Math.PI) % (2 * Math.PI);
+        // 标准化角度
+        playerAngle = (playerAngle + Math.PI/2) % (2 * Math.PI);
+        if (playerAngle < 0) playerAngle += 2 * Math.PI;
 
         // 计算角度差
         double angleDiff = Math.abs(playerAngle - angle);
-        angleDiff = Math.min(angleDiff, 2 * Math.PI - angleDiff);
+        if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
+
+        // 计算与玩家的距离
+        double distance = Math.sqrt(
+                Math.pow(playerCenterX - tankCenterX, 2) +
+                Math.pow(playerCenterY - tankCenterY, 2)
+        );
 
         // 当玩家在坦克前方一定角度范围内时提高射击概率
-        if (angleDiff < Math.PI / 4) { // 前方45度范围内
-            // 计算与玩家的距离
-            double distance = Math.sqrt(
-                    Math.pow((player.getX() + player.getWidth()/2) - (x + width/2), 2) +
-                            Math.pow((player.getY() + player.getHeight()/2) - (y + height/2), 2)
-            );
-
+        int fireProb;
+        if (angleDiff < Math.PI / 6) { // 前方30度范围内
             // 距离越近，射击概率越高
-            int fireProb;
             if (distance < 150) {
-                fireProb = 5; // 1/5概率
+                fireProb = 3; // 1/3概率
             } else if (distance < 300) {
-                fireProb = 10; // 1/10概率
+                fireProb = 5; // 1/5概率
             } else {
-                fireProb = 15; // 1/15概率
+                fireProb = 10; // 1/10概率
             }
-
-            if (random.nextInt(fireProb) == 0) {
-                fire();
-                lastFireTime = currentTime;
+        } else if (angleDiff < Math.PI / 4) { // 前方45度范围内
+            if (distance < 200) {
+                fireProb = 5; // 1/5概率
+            } else {
+                fireProb = 12; // 1/12概率
             }
         } else {
-            // 玩家不在正前方，使用普通随机射击
-            if (random.nextInt(FIRE_CHANCE) == 0) {
-                fire();
-                lastFireTime = currentTime;
+            // 玩家不在正前方，降低射击概率
+            fireProb = 20; // 1/20概率
+        }
+
+        // 尝试射击
+        if (random.nextInt(fireProb) == 0) {
+            // 计算预测射击
+            double predictFactor = 0.0;
+            
+            // 只有当玩家移动时才进行预测
+            if (Math.abs(player.getX() - lastPlayerX) > 2 || Math.abs(player.getY() - lastPlayerY) > 2) {
+                // 预测玩家移动方向
+                double moveAngle = Math.atan2(
+                    player.getY() - lastPlayerY,
+                    player.getX() - lastPlayerX
+                );
+                
+                // 预测因子 - 根据距离和速度调整
+                double playerSpeed = Math.sqrt(
+                    Math.pow(player.getX() - lastPlayerX, 2) + 
+                    Math.pow(player.getY() - lastPlayerY, 2)
+                );
+                
+                // 简单预测 - 距离越远预测越多
+                predictFactor = (distance / 400) * (playerSpeed / 5) * 0.1;
+                
+                // 应用预测调整到射击角度
+                angle = playerAngle + predictFactor;
+            } else {
+                // 玩家静止，直接瞄准
+                angle = playerAngle;
             }
+            
+            // 发射子弹
+            fire(player);
+            
+            // 更新上次玩家位置（用于下次预测）
+            lastPlayerX = player.getX();
+            lastPlayerY = player.getY();
         }
     }
 
     @Override
     public void fire() {
-        // 计算子弹发射位置(坦克前方)
-        int bulletX = (int) (x + width/2 + (width/2 + 5) * Math.sin(angle));
-        int bulletY = (int) (y + height/2 - (height/2 + 5) * Math.cos(angle));
-
-        EnemyBullet bullet = new EnemyBullet(bulletX, bulletY, angle);
-        bullets.add(bullet);
-        // 设置子弹自动消失的定时器
-        new Timer(BULLET_LIFETIME, e -> {
-            bullet.deactivate();
-            ((Timer)e.getSource()).stop();
-        }).start();
+        // 基本射击，没有目标
+        fire(null);
     }
 
     @Override
     public void fire(PlayerTank player) {
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - lastFireTime >= FIRE_INTERVAL) {
+            // 计算炮管前端位置 - 正确的计算方式
+            int barrelLength = width / 2 + 5;
+            
+            // 修正：使用正确的三角函数计算子弹生成位置
+            // 假设0度表示向右（与tankR.gif图片一致）
+            int bulletX = (int) (x + width / 2 + Math.cos(angle) * barrelLength);
+            int bulletY = (int) (y + height / 2 + Math.sin(angle) * barrelLength);
 
+            // 检查子弹生成位置是否与玩家坦克重叠
+            if (player != null && player.isAlive()) {
+                Rectangle bulletBounds = new Rectangle(bulletX-5, bulletY-5, 10, 10);
+                if (player.getCollisionBounds().intersects(bulletBounds)) {
+                    return; // 取消本次射击，防止子弹在玩家内部生成
+                }
+            }
+
+            // 根据坦克难度添加随机偏移
+            double randomSpread = (random.nextDouble() - 0.5) * 0.2;
+            double fireAngle = angle + randomSpread;
+            
+            // 创建子弹
+            EnemyBullet bullet = new EnemyBullet(bulletX, bulletY, fireAngle);
+            bullet.setMinCollisionDistance(30); // 设置最小碰撞检测距离
+            bullets.add(bullet);
+            lastFireTime = currentTime;
+        }
     }
 
     public void updateBullets() {

@@ -21,14 +21,14 @@ public class AITank extends AbstractTank {
     
     // 子弹管理
     private List<EnemyBullet> bullets;
-    private static final int FIRE_INTERVAL = 2500; // 发射间隔2.5秒
+    private static int fireInterval = 2500; // Changed from final to allow modification
     
     // 时间控制
     private long lastActionTime = 0;
     private long lastFireTime = 0;
     private long lastPlayerPositionUpdate = 0;
     private long lastStateChangeTime = 0;
-    private static final long ACTION_DELAY = 100;
+    private static long actionDelay = 100; // Changed from final to allow modification
     private static final long PATTERN_UPDATE_INTERVAL = 1000;
     private static final long STATE_CHANGE_COOLDOWN = 1500; // 冷却时间
 
@@ -151,6 +151,9 @@ public class AITank extends AbstractTank {
     public void updateAI(PlayerTank player, int currentLevel) {
         if (!isAlive() || player == null || !player.isAlive()) return;
 
+        // 适应当前难度级别
+        adaptToDifficulty(currentLevel);
+        
         long currentTime = System.currentTimeMillis();
         
         // 更新玩家模式学习数据
@@ -160,7 +163,7 @@ public class AITank extends AbstractTank {
         }
 
         // 控制AI行为更新频率
-        long dynamicDelay = (long)(ACTION_DELAY * (1 - currentLevel * 0.03));
+        long dynamicDelay = (long)(actionDelay * (1 - currentLevel * 0.03));
         if (currentTime - lastActionTime < dynamicDelay) {
             // 即使不执行主要行为更新，也要更新子弹
             updateBullets();
@@ -196,7 +199,7 @@ public class AITank extends AbstractTank {
         // 随机学习 - 每500次更新学习一次(约10秒)
         if (random.nextInt(500) == 0) {
             boolean success = isPerformingWell(player);
-            learn(success, player);
+            advancedLearn(success, player);
         }
     }
     
@@ -844,7 +847,7 @@ public class AITank extends AbstractTank {
     private boolean shouldShoot(PlayerTank player, double distance, double angleToPlayer, double levelFactor) {
         // 检查冷却时间
         long currentTime = System.currentTimeMillis();
-        if (currentTime - lastFireTime < FIRE_INTERVAL) {
+        if (currentTime - lastFireTime < fireInterval) {
             return false;
         }
 
@@ -1280,6 +1283,40 @@ public class AITank extends AbstractTank {
         this.detector = detector;
     }
     
+    /**
+     * 动态难度适应系统 - 根据当前关卡调整AI能力
+     */
+    public void adaptToDifficulty(int currentLevel) {
+        // 基础难度参数
+        double baseDifficulty = 0.5;
+        // 难度增长系数
+        double difficultyGrowth = 0.08;
+        // 计算当前难度
+        double currentDifficulty = Math.min(0.95, baseDifficulty + (currentLevel - 1) * difficultyGrowth);
+        
+        // 根据难度调整AI特性
+        aggressiveness = Math.min(1.0, weights.getOrDefault("personality_aggressive", 0.7) + currentDifficulty * 0.3);
+        intelligence = Math.min(1.0, weights.getOrDefault("personality_intelligence", 0.6) + currentDifficulty * 0.4);
+        precision = Math.min(1.0, weights.getOrDefault("personality_precision", 0.8) + currentDifficulty * 0.2);
+        
+        // 调整行为权重
+        weights.put("shoot", Math.min(1.0, weights.getOrDefault("shoot", 0.85) + currentDifficulty * 0.15));
+        weights.put("predict", Math.min(1.0, weights.getOrDefault("predict", 0.4) + currentDifficulty * 0.3));
+        
+        // 调整反应时间和行动频率
+        actionDelay = Math.max(50, 100 - currentLevel * 5); // 越高级反应越快
+        // Cannot modify FIRE_INTERVAL as it's final, you need to handle this differently
+        
+        // 调整移动速度
+        currentSpeed = BASE_SPEED + Math.min(3, currentLevel / 2);
+        
+        // 日志记录
+        System.out.println("AI适应到难度等级" + currentLevel + 
+                          "，攻击性:" + String.format("%.2f", aggressiveness) + 
+                          "，智能:" + String.format("%.2f", intelligence) + 
+                          "，精度:" + String.format("%.2f", precision));
+    }
+    
     // 标准化角度到0-2π范围
     private double normalizeAngle(double angle) {
         angle = angle % (2 * Math.PI);
@@ -1295,7 +1332,7 @@ public class AITank extends AbstractTank {
     @Override
     public void fire(PlayerTank player) {
         long currentTime = System.currentTimeMillis();
-        if (currentTime - lastFireTime >= FIRE_INTERVAL) {
+        if (currentTime - lastFireTime >= fireInterval) {
             // 计算炮管前端位置 - 保证子弹从正前方射出
             int barrelLength = width / 2 + 5;
             int bulletX = (int) (x + width / 2 + Math.cos(angle) * barrelLength);
@@ -1496,6 +1533,468 @@ public class AITank extends AbstractTank {
                 
                 System.out.println("坦克被击毁，触发爆炸效果 at " + explosionX + "," + explosionY);
             }
+        }
+    }
+
+    /**
+     * 高级学习系统 - 引入记忆和遗忘机制
+     */
+    private Map<String, Double> shortTermMemory = new HashMap<>();
+    private Map<String, Double> longTermMemory = new HashMap<>();
+
+    /**
+     * 高级学习方法 - 整合短期记忆和长期记忆
+     */
+    public void advancedLearn(boolean success, PlayerTank player) {
+        // 常规学习
+        learn(success, player);
+        
+        // 短期记忆学习 - 基于最近几次交互
+        String memoryKey = generateSituationKey(player);
+        double result = success ? 1.0 : -0.5;
+        
+        // 更新短期记忆
+        shortTermMemory.merge(memoryKey, result, (old, val) -> old * 0.7 + val * 0.3);
+        
+        // 将重要的短期记忆转移到长期记忆
+        shortTermMemory.forEach((key, value) -> {
+            if (Math.abs(value) > 0.7) { // 强烈的记忆会转入长期记忆
+                longTermMemory.merge(key, value * 0.3, (old, val) -> old * 0.9 + val * 0.1);
+            }
+        });
+        
+        // 根据长期记忆调整策略权重
+        updateWeightsFromMemory();
+        
+        // 定期清理短期记忆
+        if (random.nextInt(20) == 0) {
+            shortTermMemory.entrySet().removeIf(entry -> Math.abs(entry.getValue()) < 0.3);
+        }
+    }
+
+    /**
+     * 生成情境键 - 描述当前战斗情况
+     */
+    private String generateSituationKey(PlayerTank player) {
+        double distance = calculateDistance(player);
+        String distanceKey = distance < 150 ? "close" : (distance < 300 ? "medium" : "far");
+        
+        boolean playerNearWall = isNearWall(player.getX(), player.getY(), player.getWidth(), player.getHeight());
+        boolean aiNearWall = isNearWall(x, y, width, height);
+        
+        int healthDiff = (int)(health * 100) - player.getHealth();
+        String healthKey = healthDiff > 20 ? "advantage" : (healthDiff < -20 ? "disadvantage" : "equal");
+        
+        return distanceKey + "_" + (playerNearWall ? "pWall" : "pOpen") + 
+               "_" + (aiNearWall ? "aWall" : "aOpen") + "_" + healthKey;
+    }
+
+    /**
+     * 根据记忆更新权重
+     */
+    private void updateWeightsFromMemory() {
+        // 将长期记忆中的成功经验转化为行为权重
+        longTermMemory.forEach((key, value) -> {
+            if (value > 0) {
+                if (key.startsWith("close")) {
+                    weights.merge("close_combat", value * 0.1, Double::sum);
+                } else if (key.startsWith("medium")) {
+                    weights.merge("mid_range_combat", value * 0.1, Double::sum);
+                } else if (key.startsWith("far")) {
+                    weights.merge("long_range_combat", value * 0.1, Double::sum);
+                }
+                
+                if (key.contains("pWall")) {
+                    weights.merge("target_near_wall", value * 0.1, Double::sum);
+                }
+                
+                if (key.contains("aWall") && value < 0) {
+                    weights.merge("avoid_wall_position", 0.1, Double::sum);
+                }
+            }
+        });
+    }
+
+    /**
+     * 扩展行为状态 - 添加高级行为
+     */
+    private enum ExtendedBehaviorState {
+        NORMAL, ATTACKING, EVADING, STRATEGIC,
+        AMBUSH,        // 设置伏击
+        FLANKING,      // 侧翼攻击
+        BAITING,       // 诱敌
+        DEFENSIVE      // 防御姿态
+    }
+
+    /**
+     * 高级策略行为 - 侧翼攻击
+     */
+    private void flankingManeuver(PlayerTank player, double levelFactor) {
+        // 计算玩家朝向
+        double playerAngle = player.getAngle();
+        
+        // 计算侧翼位置 (90度角)
+        double flankAngle = playerAngle + Math.PI/2;
+        if (random.nextBoolean()) {
+            flankAngle = playerAngle - Math.PI/2;
+        }
+        
+        // 计算侧翼目标位置
+        double flankDistance = 200 + random.nextInt(100);
+        double targetX = player.getX() + Math.cos(flankAngle) * flankDistance;
+        double targetY = player.getY() + Math.sin(flankAngle) * flankDistance;
+        
+        // 移动到侧翼位置
+        moveToPosition((int)targetX, (int)targetY, levelFactor * 1.2);
+        
+        // 保持面向玩家
+        double angleToPlayer = calculateAngleToPlayer(player);
+        this.angle = angleToPlayer;
+    }
+
+    // 伏击行为相关变量
+    private boolean hasGoodAmbushPosition = false;
+    private int ambushX = 0;
+    private int ambushY = 0;
+    
+    /**
+     * 高级策略行为 - 伏击模式
+     */
+    private void ambushBehavior(PlayerTank player, double levelFactor) {
+        // 寻找合适的伏击位置 (靠近墙体)
+        if (!hasGoodAmbushPosition) {
+            findAmbushPosition();
+            return;
+        }
+        
+        // 如果玩家距离伏击点足够近，开始攻击
+        double distanceToPlayer = calculateDistance(player);
+        if (distanceToPlayer < 250) {
+            // 切换为攻击模式
+            currentBehaviorState = BehaviorState.ATTACKING;
+            attackPlayer(player, distanceToPlayer, levelFactor * 1.5);
+        } else {
+            // 继续保持伏击位置
+            moveToPosition(ambushX, ambushY, levelFactor * 0.5);
+            // 面向玩家方向
+            this.angle = calculateAngleToPlayer(player);
+        }
+    }
+    
+    /**
+     * 寻找适合伏击的位置
+     */
+    private boolean findAmbushPosition() {
+        // 在地图周围寻找靠近墙壁的位置
+        int[] possibleX = {100, 200, 600, 700, x};
+        int[] possibleY = {100, 200, 400, 500, y};
+        
+        // 尝试不同的位置组合
+        for (int i = 0; i < possibleX.length; i++) {
+            for (int j = 0; j < possibleY.length; j++) {
+                int testX = possibleX[i];
+                int testY = possibleY[j];
+                
+                // 检查位置是否有效
+                if (testX >= 0 && testX < 800 - width && 
+                    testY >= 0 && testY < 600 - height) {
+                    
+                    // 检查是否靠近墙
+                    if (isNearWall(testX, testY, width, height)) {
+                        ambushX = testX;
+                        ambushY = testY;
+                        hasGoodAmbushPosition = true;
+                        return true;
+                    }
+                }
+            }
+        }
+        
+        // 如果找不到好位置，使用当前位置
+        ambushX = x;
+        ambushY = y;
+        hasGoodAmbushPosition = isNearWall(x, y, width, height);
+        return hasGoodAmbushPosition;
+    }
+    
+    // 诱敌战术相关变量
+    private int baitingPhase = -1;
+    private long baitingStartTime = 0;
+    
+    // 诱敌战术方法已在上面定义，这里删除重复定义
+
+    /**
+     * 高级策略行为 - 诱敌战术
+     */
+    private void baitingTactic(PlayerTank player, double levelFactor) {
+        // 初始阶段 - 假装逃跑
+        if (baitingPhase == 0) {
+            evadeFrom(player, levelFactor * 0.8);
+            
+            // 当与玩家距离足够远时，切换到第二阶段
+            if (calculateDistance(player) > 300) {
+                baitingPhase = 1;
+            }
+        } 
+        // 第二阶段 - 停止并准备反击
+        else if (baitingPhase == 1) {
+            // 转向玩家
+            this.angle = calculateAngleToPlayer(player);
+            
+            // 如果玩家追过来，切换到反击阶段
+            if (calculateDistance(player) < 250) {
+                baitingPhase = 2;
+            }
+        }
+        // 反击阶段
+        else {
+            attackPlayer(player, calculateDistance(player), levelFactor * 1.4);
+            
+            // 反击一段时间后重置战术
+            if (System.currentTimeMillis() - baitingStartTime > 5000) {
+                baitingPhase = 0;
+                baitingStartTime = System.currentTimeMillis();
+            }
+        }
+    }
+    
+    /**
+     * 高级移动系统 - 移动到指定位置
+     */
+    private void moveToPosition(int targetX, int targetY, double speedFactor) {
+        double dx = targetX - x;
+        double dy = targetY - y;
+        double distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance > 5) { // 只有距离足够远才移动
+            // 计算移动角度
+            double moveAngle = Math.atan2(dy, dx);
+            
+            // 使用平滑转向
+            smoothRotateToAngle(moveAngle, 0.1);
+            
+            // 计算新位置
+            int newX = (int)(x + Math.cos(this.angle) * currentSpeed * speedFactor);
+            int newY = (int)(y + Math.sin(this.angle) * currentSpeed * speedFactor);
+
+            // 碰撞检测
+            if (checkCollision(newX, newY)) {
+                x = newX;
+                y = newY;
+            } else {
+                // 如果碰到障碍，尝试智能绕行
+                smartPathfinding(targetX, targetY, speedFactor);
+            }
+        }
+    }
+
+    /**
+     * 智能路径寻找 - 简化版本
+     */
+    private void smartPathfinding(int targetX, int targetY, double speedFactor) {
+        // 尝试8个方向中的一个来绕过障碍
+        double[] testAngles = {
+            angle + Math.PI/4, angle - Math.PI/4,
+            angle + Math.PI/2, angle - Math.PI/2,
+            angle + 3*Math.PI/4, angle - 3*Math.PI/4,
+            angle + Math.PI, angle
+        };
+        
+        for (double testAngle : testAngles) {
+            int newX = (int)(x + Math.cos(testAngle) * currentSpeed * speedFactor);
+            int newY = (int)(y + Math.sin(testAngle) * currentSpeed * speedFactor);
+            
+            if (checkCollision(newX, newY)) {
+                x = newX;
+                y = newY;
+                this.angle = testAngle;
+                return;
+            }
+        }
+    }
+
+    /**
+     * 平滑转向目标角度
+     */
+    private void smoothRotateToAngle(double targetAngle, double rotationSpeed) {
+        double angleDiff = normalizeAngle(targetAngle - this.angle);
+        
+        if (Math.abs(angleDiff) < 0.05) {
+            this.angle = targetAngle;
+            return;
+        }
+        
+        if (angleDiff > 0 && angleDiff <= Math.PI) {
+            this.angle += rotationSpeed;
+        } else {
+            this.angle -= rotationSpeed;
+        }
+        
+        this.angle = normalizeAngle(this.angle);
+    }
+    
+    /**
+     * 高级预测射击系统
+     */
+    private void advancedPredictiveShot(PlayerTank player) {
+        if (!isAlive() || !player.isAlive()) return;
+        
+        // 基础预测 - 考虑当前玩家速度和方向
+        double playerSpeed = Math.sqrt(
+            Math.pow(player.getX() - lastPlayerX, 2) + 
+            Math.pow(player.getY() - lastPlayerY, 2)
+        );
+        
+        // 子弹飞行时间估计
+        double distance = calculateDistance(player);
+        double bulletSpeed = 10; // 子弹速度
+        double timeToTarget = distance / bulletSpeed;
+        
+        // 计算玩家移动方向
+        double playerMoveAngle = 0;
+        if (playerSpeed > 0.5) {
+            playerMoveAngle = Math.atan2(
+                player.getY() - lastPlayerY,
+                player.getX() - lastPlayerX
+            );
+        } else {
+            // 如果玩家基本静止，使用玩家朝向作为预测依据
+            playerMoveAngle = player.getAngle();
+            playerSpeed = 1; // 假设会开始移动
+        }
+        
+        // 预测玩家未来位置
+        double predictedX = player.getX() + Math.cos(playerMoveAngle) * playerSpeed * timeToTarget * intelligence;
+        double predictedY = player.getY() + Math.sin(playerMoveAngle) * playerSpeed * timeToTarget * intelligence;
+        
+        // 计算预测瞄准角度
+        double predictedAngle = Math.atan2(predictedY - y, predictedX - x);
+        
+        // 应用精度因子
+        double accuracyFactor = 1.0 - (1.0 - precision) * 0.3;
+        double finalAngle = predictedAngle * accuracyFactor + angle * (1 - accuracyFactor);
+        
+        // 应用角度预测
+        this.predictFactor = normalizeAngle(finalAngle - angle);
+        
+        // 发射子弹
+        fire(player);
+        
+        // 重置预测因子
+        this.predictFactor = 0;
+    }
+
+    /**
+     * 高级决策系统 - 基于当前情境和历史数据
+     */
+    private void advancedBehaviorDecision(PlayerTank player, double distance, double threatLevel, int currentLevel) {
+        // 冷却检查
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - lastStateChangeTime < STATE_CHANGE_COOLDOWN) {
+            return;
+        }
+        
+        // 高级状态选择 - 考虑更多因素
+        double[] stateWeights = new double[BehaviorState.values().length];
+        
+        // 根据距离计算各状态权重
+        if (distance < 150) {
+            stateWeights[BehaviorState.ATTACKING.ordinal()] += 0.4 * aggressiveness;
+            stateWeights[BehaviorState.EVADING.ordinal()] += 0.3 * (1 - aggressiveness);
+            stateWeights[BehaviorState.STRATEGIC.ordinal()] += 0.2 * intelligence;
+        } else if (distance < 300) {
+            stateWeights[BehaviorState.ATTACKING.ordinal()] += 0.3;
+            stateWeights[BehaviorState.STRATEGIC.ordinal()] += 0.4 * intelligence;
+            stateWeights[BehaviorState.EVADING.ordinal()] += 0.2;
+        } else {
+            stateWeights[BehaviorState.ATTACKING.ordinal()] += 0.5;
+            stateWeights[BehaviorState.STRATEGIC.ordinal()] += 0.3 * intelligence;
+        }
+        
+        // 考虑威胁级别
+        if (threatLevel > 0.7) {
+            stateWeights[BehaviorState.EVADING.ordinal()] += 0.4 * (1 - aggressiveness);
+        }
+        
+        // 考虑生命值
+        if (health < 0.4) {
+            stateWeights[BehaviorState.EVADING.ordinal()] += 0.3;
+            stateWeights[BehaviorState.ATTACKING.ordinal()] -= 0.2;
+        }
+        
+        // 考虑关卡难度
+        if (currentLevel > 3) {
+            // 高级别时更具侵略性
+            stateWeights[BehaviorState.ATTACKING.ordinal()] += 0.1 * (currentLevel - 3);
+            // 更多使用策略行为
+            stateWeights[BehaviorState.STRATEGIC.ordinal()] += 0.05 * (currentLevel - 3);
+        }
+        
+        // 应用学习权重
+        stateWeights[BehaviorState.ATTACKING.ordinal()] *= weights.getOrDefault("chase", 0.9);
+        stateWeights[BehaviorState.EVADING.ordinal()] *= weights.getOrDefault("evade", 0.4);
+        stateWeights[BehaviorState.STRATEGIC.ordinal()] *= weights.getOrDefault("strategic", 0.5);
+        
+        // 找出权重最高的状态
+        int maxIndex = 0;
+        for (int i = 1; i < stateWeights.length; i++) {
+            if (stateWeights[i] > stateWeights[maxIndex]) {
+                maxIndex = i;
+            }
+        }
+        
+        // 设置新状态
+        BehaviorState newState = BehaviorState.values()[maxIndex];
+        
+        // 如果状态改变，记录时间
+        if (currentBehaviorState != newState) {
+            previousState = currentBehaviorState;
+            currentBehaviorState = newState;
+            lastStateChangeTime = currentTime;
+            
+            // 记录状态变化到学习系统
+            String stateKey = "state_change_" + previousState + "_to_" + currentBehaviorState;
+            weights.merge(stateKey, 0.1, Double::sum);
+        }
+    }
+    
+    /**
+     * 随机高级行为 - 增加不可预测性
+     */
+    private void executeRandomAdvancedBehavior(PlayerTank player, double levelFactor, int currentLevel) {
+        // 只在较高级别时使用高级行为
+        if (currentLevel < 3) return;
+        
+        // 随机选择高级行为
+        int behaviorChoice = random.nextInt(100);
+        
+        // 行为选择概率随关卡提高而增加
+        int advancedBehaviorChance = 10 + (currentLevel - 3) * 5;
+        
+        if (behaviorChoice < advancedBehaviorChance) {
+            switch (random.nextInt(3)) {
+                case 0:
+                    flankingManeuver(player, levelFactor);
+                    break;
+                case 1:
+                    if (baitingPhase == -1) {
+                       
+                        baitingPhase = 0;
+                        baitingStartTime = System.currentTimeMillis();
+                    }
+                    baitingTactic(player, levelFactor);
+                    break;
+                case 2:
+                    if (hasGoodAmbushPosition || findAmbushPosition()) {
+                        ambushBehavior(player, levelFactor);
+                    } else {
+                        strategicMovement(player, levelFactor);
+                    }
+                    break;
+            }
+        } else {
+            // 执行常规行为
+            executeBehavior(player, calculateDistance(player), levelFactor);
         }
     }
 }
