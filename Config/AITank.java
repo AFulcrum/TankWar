@@ -74,6 +74,7 @@ public class AITank extends AbstractTank {
     private final Random random = new Random();
     private int lastPlayerX = 0;
     private int lastPlayerY = 0;
+    private double predictFactor = 0.0; // 子弹预测因子
     
     // 威胁检测距离
     private static final double BULLET_DETECT_DISTANCE = 250;
@@ -1303,48 +1304,27 @@ public class AITank extends AbstractTank {
     public void fire(PlayerTank player) {
         long currentTime = System.currentTimeMillis();
         if (currentTime - lastFireTime >= FIRE_INTERVAL) {
-            // 修正炮管位置计算 - 坦克朝上时子弹应该从顶部发射
+            // 计算炮管位置
             int barrelLength = width / 2 + 5;
-            // 修正计算方式 - 调整为使用正确的三角函数
             int bulletX = (int) (x + width / 2 + Math.sin(angle) * barrelLength);
             int bulletY = (int) (y + height / 2 - Math.cos(angle) * barrelLength);
 
-            // 精度影响弹道扩散
+            // 检查子弹生成位置是否与玩家坦克重叠，如果重叠则不发射
+            Rectangle bulletBounds = new Rectangle(bulletX-5, bulletY-5, 10, 10);
+            if (player != null && player.isAlive() && 
+                player.getCollisionBounds().intersects(bulletBounds)) {
+                return; // 如果子弹会在玩家内部生成，取消本次射击
+            }
+
+            // 其余子弹创建代码不变
             double spreadFactor = (1.0 - precision) * 0.2;
             double randomSpread = (random.nextDouble() - 0.5) * spreadFactor;
-            
-            // 智能预测代码保持不变
-            double predictFactor = 0;
-            if (intelligence > 0.5 && lastPlayerX != 0 && player != null) {
-                double dx = player.getX() - lastPlayerX;
-                double dy = player.getY() - lastPlayerY;
-                
-                if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
-                    // 计算玩家移动角度和速度
-                    double playerMoveAngle = Math.atan2(dy, dx);
-                    double playerSpeed = Math.sqrt(dx*dx + dy*dy);
-                    
-                    // 预测补偿
-                    predictFactor = (playerSpeed / 20.0) * (intelligence - 0.5);
-                    predictFactor = Math.min(0.15, predictFactor);
-                    
-                    // 角度差决定补偿方向
-                    double angleDiff = normalizeAngle(playerMoveAngle - angle);
-                    if (Math.abs(angleDiff) > Math.PI/2) {
-                        predictFactor = -predictFactor;
-                    }
-                }
-            }
-            
-            // 最终射击角度
             double fireAngle = angle + randomSpread + predictFactor;
             
-            // 创建子弹
             EnemyBullet bullet = new EnemyBullet(bulletX, bulletY, fireAngle);
+            bullet.setMinCollisionDistance(30); // 设置最小碰撞检测距离
             bullets.add(bullet);
             lastFireTime = currentTime;
-            
-            // 更新生涯射击统计
             lifetimeShots++;
         }
     }

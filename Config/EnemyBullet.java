@@ -20,6 +20,8 @@ public class EnemyBullet implements Bullet {
     private double dx, dy; // 方向向量
     private int bounceCount = 0;
     private static final int MAX_BOUNCE = 66; // 最大反弹次数
+    private double travelDistance = 0;
+    private double minCollisionDistance = 40; // 最小碰撞距离设置为40像素
 
     public EnemyBullet(int x, int y, double angle) {
         this.x = x - width/2;
@@ -40,11 +42,24 @@ public class EnemyBullet implements Bullet {
         return damage;
     }
 
+    public void setMinCollisionDistance(double distance) {
+        this.minCollisionDistance = distance;
+    }
+
     @Override
     public void updatePosition() {
         if (!active) return;
-        x += speed * dx;
-        y += speed * dy;
+
+        double oldX = x;
+        double oldY = y;
+
+        // 更新位置
+        x += Math.cos(angle) * speed;
+        y += Math.sin(angle) * speed;
+
+        // 计算移动距离
+        double moveDist = Math.sqrt(Math.pow(x-oldX, 2) + Math.pow(y-oldY, 2));
+        travelDistance += moveDist;
     }
 
     @Override
@@ -138,5 +153,9 @@ public class EnemyBullet implements Bullet {
     public void adjustPosition(int dx, int dy) {
         this.x += dx;
         this.y += dy;
+    }
+
+    public boolean canCollide() {
+        return active && travelDistance >= minCollisionDistance;
     }
 }

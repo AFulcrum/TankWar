@@ -72,18 +72,37 @@ public class SimpleCollisionDetector implements CollisionDetector {
         return false;
     }
 
-    // 添加一个重载方法，用于检查坦克与坦克之间的碰撞
-    public boolean isColliding(int x, int y, int width, int height, Rectangle excludeBounds) {
-        boolean result = isColliding(x, y, width, height);
+    // 添加一个检查碰撞但排除坦克的方法
+    public boolean isCollidingExcludeTanks(int x, int y, int width, int height) {
+        if (gameAreaSize == null) return false;
 
-        // 如果需要排除特定对象（如避免自己与自己碰撞）
-        if (result && excludeBounds != null) {
-            Rectangle newBounds = new Rectangle(x, y, width, height);
-            if (newBounds.equals(excludeBounds) || newBounds.intersects(excludeBounds)) {
-                return false; // 排除自身碰撞
+        // 检查边界碰撞
+        if (x < 2 || y < 2 ||
+                x + width > gameAreaSize.width - 2 ||
+                y + height > gameAreaSize.height - 2) {
+            return true;
+        }
+
+        // 只检查墙体碰撞，不检查坦克碰撞
+        Rectangle objectBounds = new Rectangle(x, y, width, height);
+
+        // 检查PVEWall碰撞
+        if (pveWalls != null) {
+            for (PVEWall wall : pveWalls) {
+                if (wall.isSolid()) {
+                    if (objectBounds.intersects(wall.getCollisionBounds())) {
+                        return true;
+                    }
+                } else {
+                    for (Rectangle segment : wall.getSegments()) {
+                        if (objectBounds.intersects(segment)) {
+                            return true;
+                        }
+                    }
+                }
             }
         }
 
-        return result;
+        return false;
     }
 }
