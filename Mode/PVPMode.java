@@ -2,6 +2,7 @@ package Mode;
 
 import Config.*;
 import InterFace.CollisionDetector;
+import InterFace.Bullet;
 import Structure.PVPWall;
 
 import java.awt.*;
@@ -85,7 +86,6 @@ public class PVPMode extends JPanel {
         repaint(); // 保证初始显示
     }
 
-    // 在updateGame方法中添加检查
     private void updateGame() {
         if (!gameRunning) return;
 
@@ -258,226 +258,678 @@ public class PVPMode extends JPanel {
                     + PlayerTank.getHealth() + "<br>---</html>");
         }
     }
-    // 修改检查墙体碰撞的方法
+    /**
+     * 优化的子弹与墙体碰撞检测系统
+     */
     private void checkBulletWallCollisions() {
-        // 检查玩家子弹与墙体和边界的碰撞
+        // 检测玩家子弹与墙体碰撞
         for (PlayerBullet bullet : player.getBullets()) {
             if (!bullet.isActive()) continue;
 
             Rectangle bulletBounds = bullet.getCollisionBounds();
             if (bulletBounds == null) continue;
-            // 获取子弹当前方向
+            
+            // 获取子弹中心点
+            int bulletCenterX = bulletBounds.x + bulletBounds.width / 2;
+            int bulletCenterY = bulletBounds.y + bulletBounds.height / 2;
+            
+            // 即时边界检查 - 防止子弹已经越过边界
+            if (checkAndHandleBoundaryCollision(bullet, bulletCenterX, bulletCenterY)) {
+                continue; // 如果发生边界碰撞，跳过后续检测
+            }
+            
+            // 获取子弹当前方向和速度
             double angle = bullet.getAngle();
+            double speed = bullet.getSpeed();
             double dx = Math.sin(angle);
             double dy = -Math.cos(angle);
-
-            // 预测下一位置
-            Rectangle nextBulletPos = new Rectangle(
-                    bulletBounds.x + (int)(dx * 3),
-                    bulletBounds.y - (int)(dy * 3),
-                    bulletBounds.width,
-                    bulletBounds.height
-            );
-
-            boolean hitWall = false;
-            boolean isHorizontalCollision = false;
-            // 检查是否与墙体碰撞
-            for (PVPWall PVPWall : PVPWalls) {
-                Rectangle wallBounds = PVPWall.getCollisionBounds();
-
-                // 检查当前位置是否已经与墙重叠(可能已经穿模)
-                if (bulletBounds.intersects(wallBounds)) {
-                    hitWall = true;
-                    // 确定碰撞方向
-                    int overlapLeft = (wallBounds.x + wallBounds.width) - bulletBounds.x;
-                    int overlapRight = (bulletBounds.x + bulletBounds.width) - wallBounds.x;
-                    int overlapTop = (wallBounds.y + wallBounds.height) - bulletBounds.y;
-                    int overlapBottom = (bulletBounds.y + bulletBounds.height) - wallBounds.y;
-                    // 找出最小重叠方向
-                    int minOverlap = Math.min(
-                            Math.min(overlapLeft, overlapRight),
-                            Math.min(overlapTop, overlapBottom)
-                    );
-                    // 确定主要碰撞方向
-                    if (minOverlap == overlapLeft || minOverlap == overlapRight) {
-                        isHorizontalCollision = true;
-                    }
-                    break;
-                }
-                // 检查下一位置是否会与墙重叠(即将碰撞)
-                if (!hitWall && nextBulletPos.intersects(wallBounds)) {
-                    hitWall = true;
-                    // 通过移动方向判断碰撞面
-                    if (Math.abs(dx) > Math.abs(dy)) {
-                        isHorizontalCollision = true;
-                    }
-                    break;
-                }
-            }
-            // 检查是否碰到边界
-            if (!hitWall) {
-                int gameWidth = getWidth();
-                int gameHeight = getHeight();
-
-                if (bulletBounds.x <= 0 || bulletBounds.x + bulletBounds.width >= gameWidth) {
-                    hitWall = true;
-                    isHorizontalCollision = true;
-                } else if (bulletBounds.y <= 0 || bulletBounds.y + bulletBounds.height >= gameHeight) {
-                    hitWall = true;
-                    isHorizontalCollision = false;
-                }
-            }
+            
+            // 预测下一位置 - 增加预测系数，解决高速穿墙问题
+            double predictionFactor = Math.min(1.5, 1 + speed / 20.0);
+            int nextX = (int)(bulletCenterX + dx * speed * predictionFactor);
+            int nextY = (int)(bulletCenterY + dy * speed * predictionFactor);
+            
+            // 使用改进的射线检测与墙体碰撞
+            BulletCollisionResult collision = detectBulletCollision(
+                bulletCenterX, bulletCenterY, nextX, nextY, bullet.getRadius());
+            
             // 处理碰撞结果
-            if (hitWall) {
+            if (collision.hasCollided) {
                 if (bullet.canBounce()) {
-                    // 根据碰撞面设置反弹角度
-                    handleBulletBounce(bullet, isHorizontalCollision);
+                    processBulletBounce(bullet, collision);
                 } else {
                     bullet.deactivate();
                 }
             }
         }
-        // 对敌方子弹执行相同的碰撞检测
+        
+        // 检测敌方坦克子弹与墙体碰撞
         for (EnemyTank enemy : enemies) {
             for (EnemyBullet bullet : enemy.getBullets()) {
                 if (!bullet.isActive()) continue;
 
                 Rectangle bulletBounds = bullet.getCollisionBounds();
                 if (bulletBounds == null) continue;
-
-                // 获取子弹当前方向
+                
+                // 获取子弹中心点
+                int bulletCenterX = bulletBounds.x + bulletBounds.width / 2;
+                int bulletCenterY = bulletBounds.y + bulletBounds.height / 2;
+                
+                // 即时边界检查 - 防止子弹已经越过边界
+                if (checkAndHandleBoundaryCollision(bullet, bulletCenterX, bulletCenterY)) {
+                    continue; // 如果发生边界碰撞，跳过后续检测
+                }
+                
+                // 获取子弹当前方向和速度
                 double angle = bullet.getAngle();
-                double dx = Math.sin(angle);
-                double dy = -Math.cos(angle);
-
+                double speed = bullet.getSpeed();
+                double dx = Math.cos(angle);  // 注意敌方子弹使用cos角度
+                double dy = Math.sin(angle);  // 使用sin角度
+                
                 // 预测下一位置
-                Rectangle nextBulletPos = new Rectangle(
-                        bulletBounds.x + (int)(dx * 3),
-                        bulletBounds.y - (int)(dy * 3),
-                        bulletBounds.width,
-                        bulletBounds.height
-                );
-
-                boolean hitWall = false;
-                boolean isHorizontalCollision = false;
-
-                // 检查墙体碰撞
-                for (PVPWall PVPWall : PVPWalls) {
-                    Rectangle wallBounds = PVPWall.getCollisionBounds();
-
-                    if (bulletBounds.intersects(wallBounds)) {
-                        hitWall = true;
-
-                        int overlapLeft = (wallBounds.x + wallBounds.width) - bulletBounds.x;
-                        int overlapRight = (bulletBounds.x + bulletBounds.width) - wallBounds.x;
-                        int overlapTop = (wallBounds.y + wallBounds.height) - bulletBounds.y;
-                        int overlapBottom = (bulletBounds.y + bulletBounds.height) - wallBounds.y;
-
-                        int minOverlap = Math.min(
-                                Math.min(overlapLeft, overlapRight),
-                                Math.min(overlapTop, overlapBottom)
-                        );
-
-                        if (minOverlap == overlapLeft || minOverlap == overlapRight) {
-                            isHorizontalCollision = true;
-                        }
-                        break;
-                    }
-
-                    if (!hitWall && nextBulletPos.intersects(wallBounds)) {
-                        hitWall = true;
-
-                        if (Math.abs(dx) > Math.abs(dy)) {
-                            isHorizontalCollision = true;
-                        }
-                        break;
-                    }
-                }
-
-                // 检查边界碰撞
-                if (!hitWall) {
-                    int gameWidth = getWidth();
-                    int gameHeight = getHeight();
-
-                    if (bulletBounds.x <= 0 || bulletBounds.x + bulletBounds.width >= gameWidth) {
-                        hitWall = true;
-                        isHorizontalCollision = true;
-                    } else if (bulletBounds.y <= 0 || bulletBounds.y + bulletBounds.height >= gameHeight) {
-                        hitWall = true;
-                        isHorizontalCollision = false;
-                    }
-                }
-
+                double predictionFactor = Math.min(1.5, 1 + speed / 20.0);
+                int nextX = (int)(bulletCenterX + dx * speed * predictionFactor);
+                int nextY = (int)(bulletCenterY + dy * speed * predictionFactor);
+                
+                // 使用射线检测与墙体碰撞
+                BulletCollisionResult collision = detectBulletCollision(
+                    bulletCenterX, bulletCenterY, nextX, nextY, bullet.getRadius());
+                
                 // 处理碰撞结果
-                if (hitWall) {
+                if (collision.hasCollided) {
                     if (bullet.canBounce()) {
-                        handleEnemyBulletBounce(bullet, isHorizontalCollision);
+                        processEnemyBulletBounce(bullet, collision);
                     } else {
                         bullet.deactivate();
                     }
                 }
             }
         }
-
+        
         // 处理孤儿子弹与墙体的碰撞
         for (EnemyBullet bullet : orphanedBullets) {
             if (!bullet.isActive()) continue;
 
             Rectangle bulletBounds = bullet.getCollisionBounds();
             if (bulletBounds == null) continue;
-
-            // 获取子弹当前方向
+            
+            // 获取子弹中心点
+            int bulletCenterX = bulletBounds.x + bulletBounds.width / 2;
+            int bulletCenterY = bulletBounds.y + bulletBounds.height / 2;
+            
+            // 即时边界检查
+            if (checkAndHandleBoundaryCollision(bullet, bulletCenterX, bulletCenterY)) {
+                continue;
+            }
+            
+            // 获取子弹当前方向和速度
             double angle = bullet.getAngle();
-            double dx = Math.sin(angle);
-            double dy = -Math.cos(angle);
-
+            double speed = bullet.getSpeed();
+            double dx = Math.cos(angle);
+            double dy = Math.sin(angle);
+            
             // 预测下一位置
-            Rectangle nextBulletPos = new Rectangle(
-                    bulletBounds.x + (int)(dx * 3),
-                    bulletBounds.y - (int)(dy * 3),
-                    bulletBounds.width,
-                    bulletBounds.height
-            );
-
-            boolean hitWall = false;
-            boolean isHorizontalCollision = false;
-
-            // 检查墙体碰撞
-            for (PVPWall wall : PVPWalls) {
-                Rectangle wallBounds = wall.getCollisionBounds();
-                if (bulletBounds.intersects(wallBounds) || nextBulletPos.intersects(wallBounds)) {
-                    hitWall = true;
-                    // 确定碰撞方向
-                    if (Math.abs(dx) > Math.abs(dy)) {
-                        isHorizontalCollision = true;
-                    }
-                    break;
-                }
-            }
-
-            // 检查边界碰撞
-            if (!hitWall) {
-                int gameWidth = getWidth();
-                int gameHeight = getHeight();
-
-                if (bulletBounds.x <= 0 || bulletBounds.x + bulletBounds.width >= gameWidth) {
-                    hitWall = true;
-                    isHorizontalCollision = true;
-                } else if (bulletBounds.y <= 0 || bulletBounds.y + bulletBounds.height >= gameHeight) {
-                    hitWall = true;
-                    isHorizontalCollision = false;
-                }
-            }
-
+            double predictionFactor = Math.min(1.5, 1 + speed / 20.0);
+            int nextX = (int)(bulletCenterX + dx * speed * predictionFactor);
+            int nextY = (int)(bulletCenterY + dy * speed * predictionFactor);
+            
+            // 使用射线检测与墙体碰撞
+            BulletCollisionResult collision = detectBulletCollision(
+                bulletCenterX, bulletCenterY, nextX, nextY, bullet.getRadius());
+            
             // 处理碰撞结果
-            if (hitWall) {
+            if (collision.hasCollided) {
                 if (bullet.canBounce()) {
-                    handleEnemyBulletBounce(bullet, isHorizontalCollision);
+                    processEnemyBulletBounce(bullet, collision);
                 } else {
                     bullet.deactivate();
                 }
             }
         }
+    }
+
+    /**
+     * 检测子弹与墙体和边界的碰撞
+     */
+    private BulletCollisionResult detectBulletCollision(
+            double startX, double startY, double endX, double endY, double bulletRadius) {
+        
+        BulletCollisionResult result = new BulletCollisionResult();
+        
+        // 子弹移动向量
+        double moveX = endX - startX;
+        double moveY = endY - startY;
+        double moveLength = Math.sqrt(moveX * moveX + moveY * moveY);
+        
+        // 动态调整采样点数量，基于移动距离
+        int samplePoints = 3; // 基础采样点
+        if (moveLength > 15) samplePoints = 5;
+        if (moveLength > 25) samplePoints = 7;
+        
+        // 标准化移动向量
+        if (moveLength > 0) {
+            moveX /= moveLength;
+            moveY /= moveLength;
+        }
+        
+        // 使用多个采样点检查碰撞，提高精度
+        for (int i = 0; i <= samplePoints; i++) {
+            double t = (double) i / samplePoints;
+            double sampleX = startX + t * (endX - startX);
+            double sampleY = startY + t * (endY - startY);
+            
+            // 检查此采样点与所有墙体的碰撞
+            for (PVPWall wall : PVPWalls) {
+                Rectangle wallBounds = wall.getCollisionBounds();
+                checkSegmentCollision(result, sampleX, sampleY, endX, endY, bulletRadius, wallBounds, moveX, moveY);
+                
+                // 如果已检测到碰撞，停止检查
+                if (result.hasCollided) break;
+            }
+            
+            // 如果在此采样点发现碰撞，停止检查后续点
+            if (result.hasCollided) break;
+        }
+        
+        // 检查游戏边界 - 如果没有墙体碰撞
+        if (!result.hasCollided) {
+            checkBoundaryCollision(result, startX, startY, endX, endY, bulletRadius);
+        }
+        
+        return result;
+    }
+
+    /**
+     * 专门检查和处理子弹与边界的碰撞
+     * @return 是否发生碰撞
+     */
+    private boolean checkAndHandleBoundaryCollision(Bullet bullet, int centerX, int centerY) {
+        int gameWidth = getWidth();
+        int gameHeight = getHeight();
+        int radius = bullet instanceof PlayerBullet ? 
+                     ((PlayerBullet)bullet).getRadius() : 
+                     ((EnemyBullet)bullet).getRadius();
+        
+        // 精确检测边界碰撞
+        boolean collided = false;
+        BulletCollisionResult result = new BulletCollisionResult();
+        result.hasCollided = true;
+        result.isBoundary = true;
+        
+        // 左边界碰撞
+        if (centerX - radius <= 0) {
+            result.collisionX = radius;
+            result.collisionY = centerY;
+            result.normalX = 1;
+            result.normalY = 0;
+            result.penetrationDepth = radius;
+            collided = true;
+        }
+        // 右边界碰撞
+        else if (centerX + radius >= gameWidth) {
+            result.collisionX = gameWidth - radius;
+            result.collisionY = centerY;
+            result.normalX = -1;
+            result.normalY = 0;
+            result.penetrationDepth = radius;
+            collided = true;
+        }
+        // 上边界碰撞
+        else if (centerY - radius <= 0) {
+            result.collisionX = centerX;
+            result.collisionY = radius;
+            result.normalX = 0;
+            result.normalY = 1;
+            result.penetrationDepth = radius;
+            collided = true;
+        }
+        // 下边界碰撞
+        else if (centerY + radius >= gameHeight) {
+            result.collisionX = centerX;
+            result.collisionY = gameHeight - radius;
+            result.normalX = 0;
+            result.normalY = -1;
+            result.penetrationDepth = radius;
+            collided = true;
+        }
+        
+        // 如果检测到碰撞，处理反弹
+        if (collided) {
+            if (bullet.canBounce()) {
+                if (bullet instanceof PlayerBullet) {
+                    processBulletBounce((PlayerBullet)bullet, result);
+                } else {
+                    processEnemyBulletBounce((EnemyBullet)bullet, result);
+                }
+            } else {
+                bullet.deactivate();
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * 检查子弹轨迹与矩形段落的碰撞
+     */
+    private void checkSegmentCollision(
+            BulletCollisionResult result, double sampleX, double sampleY, 
+            double endX, double endY, double bulletRadius, 
+            Rectangle segment, double moveX, double moveY) {
+        
+        // 扩展段落边界以考虑子弹半径
+        Rectangle expandedSegment = new Rectangle(
+            segment.x - (int)bulletRadius,
+            segment.y - (int)bulletRadius,
+            segment.width + (int)(bulletRadius * 2),
+            segment.height + (int)(bulletRadius * 2)
+        );
+        
+        // 计算子弹轨迹与扩展段落的交点
+        double[] intersection = rayRectIntersection(
+            sampleX, sampleY, endX, endY, expandedSegment);
+        
+        if (intersection[0] >= 0 && intersection[0] <= 1) {
+            // 找到碰撞点
+            double hitX = sampleX + intersection[0] * (endX - sampleX);
+            double hitY = sampleY + intersection[0] * (endY - sampleY);
+            
+            // 计算距离
+            double distance = intersection[0] * Math.sqrt(Math.pow(endX - sampleX, 2) + Math.pow(endY - sampleY, 2));
+            
+            // 如果这是最近的碰撞点，更新结果
+            if (distance < result.distance) {
+                result.hasCollided = true;
+                result.distance = distance;
+                result.collisionX = hitX;
+                result.collisionY = hitY;
+                result.collidedRect = segment;
+                
+                // 确定碰撞法线
+                determineCollisionNormal(result, hitX, hitY, segment, moveX, moveY);
+                
+                // 计算穿透深度
+                result.penetrationDepth = calculatePenetrationDepth(
+                    hitX, hitY, segment, result.normalX, result.normalY);
+            }
+        }
+    }
+
+    /**
+     * 确定碰撞法线
+     */
+    private void determineCollisionNormal(
+            BulletCollisionResult result, double hitX, double hitY, 
+            Rectangle wall, double moveX, double moveY) {
+        
+        // 计算子弹中心到墙体各边的距离
+        double distLeft = Math.abs(hitX - wall.x);
+        double distRight = Math.abs(hitX - (wall.x + wall.width));
+        double distTop = Math.abs(hitY - wall.y);
+        double distBottom = Math.abs(hitY - (wall.y + wall.height));
+        
+        // 找出最近的边
+        double minDist = Math.min(Math.min(distLeft, distRight), Math.min(distTop, distBottom));
+        
+        // 设置法线 - 始终指向远离墙体的方向
+        if (minDist == distLeft) {
+            result.normalX = -1;
+            result.normalY = 0;
+        } else if (minDist == distRight) {
+            result.normalX = 1;
+            result.normalY = 0;
+        } else if (minDist == distTop) {
+            result.normalX = 0;
+            result.normalY = -1;
+        } else {
+            result.normalX = 0;
+            result.normalY = 1;
+        }
+        
+        // 处理超薄墙体的特殊情况
+        if (wall.width < 10) {
+            // 对于非常窄的墙，强制使用水平法线
+            result.normalX = moveX > 0 ? -1 : 1;
+            result.normalY = 0;
+        } else if (wall.height < 10) {
+            // 对于非常矮的墙，强制使用垂直法线
+            result.normalX = 0;
+            result.normalY = moveY > 0 ? -1 : 1;
+        }
+    }
+
+    /**
+     * 计算穿透深度
+     */
+    private double calculatePenetrationDepth(
+            double hitX, double hitY, Rectangle wall, double normalX, double normalY) {
+        
+        // 计算子弹中心到墙体最近边的距离
+        double distX, distY;
+        
+        // X方向距离
+        if (hitX < wall.x) {
+            distX = wall.x - hitX;
+        } else if (hitX > wall.x + wall.width) {
+            distX = hitX - (wall.x + wall.width);
+        } else {
+            distX = 0; // 子弹在墙体X范围内
+        }
+        
+        // Y方向距离
+        if (hitY < wall.y) {
+            distY = wall.y - hitY;
+        } else if (hitY > wall.y + wall.height) {
+            distY = hitY - (wall.y + wall.height);
+        } else {
+            distY = 0; // 子弹在墙体Y范围内
+        }
+        
+        // 如果法线是横向的
+        if (Math.abs(normalX) > Math.abs(normalY)) {
+            return distX > 0 ? distX : Math.min(wall.width, wall.height) * 0.5;
+        } 
+        // 如果法线是纵向的
+        else {
+            return distY > 0 ? distY : Math.min(wall.width, wall.height) * 0.5;
+        }
+    }
+
+    /**
+     * 处理玩家子弹反弹
+     */
+    private void processBulletBounce(PlayerBullet bullet, BulletCollisionResult collision) {
+        // 获取子弹当前角度
+        double angle = bullet.getAngle();
+        
+        // 计算入射向量
+        double incidentX = Math.sin(angle);
+        double incidentY = -Math.cos(angle);
+        
+        // 计算反射向量 R = I - 2(I·N)N
+        double dot = incidentX * collision.normalX + incidentY * collision.normalY;
+        double reflectX = incidentX - 2 * dot * collision.normalX;
+        double reflectY = incidentY - 2 * dot * collision.normalY;
+        
+        // 计算新角度
+        double newAngle = Math.atan2(reflectX, -reflectY);
+        
+        // 规范化角度到0-2π
+        newAngle = (newAngle + 2 * Math.PI) % (2 * Math.PI);
+        
+        // 设置新角度
+        bullet.setAngle(newAngle);
+        
+        // 计算子弹新位置 - 防止卡墙
+        double safetyMultiplier;
+        
+        // 为边界碰撞提供额外的安全距离
+        if (collision.isBoundary) {
+            safetyMultiplier = 3.0; // 边界碰撞使用更大的安全距离
+        } else {
+            safetyMultiplier = 2.0; // 普通墙体碰撞
+        }
+        
+        // 确保子弹完全脱离碰撞体
+        double offsetX = collision.normalX * (collision.penetrationDepth * safetyMultiplier);
+        double offsetY = collision.normalY * (collision.penetrationDepth * safetyMultiplier);
+        
+        // 如果是超薄墙体，增加额外偏移以防止穿墙
+        if (collision.collidedRect != null) {
+            if (collision.collidedRect.width < 10 || collision.collidedRect.height < 10) {
+                offsetX *= 1.5;
+                offsetY *= 1.5;
+            }
+        }
+        
+        // 设置子弹位置，确保不会卡在墙内
+        bullet.setPosition((int)(collision.collisionX + offsetX), (int)(collision.collisionY + offsetY));
+        
+        // 减少速度模拟能量损失
+        bullet.decreaseSpeed(0.9);
+        
+        // 增加微小的随机扰动，防止在某些特殊情况下的循环反弹
+        if (Math.random() < 0.1) { // 10%的概率添加微小扰动
+            double noise = (Math.random() - 0.5) * 0.05; // 很小的角度噪声
+            newAngle = (newAngle + noise + 2 * Math.PI) % (2 * Math.PI);
+            bullet.setAngle(newAngle);
+        }
+        
+        // 增加反弹计数
+        bullet.bounce();
+    }
+
+    /**
+     * 处理敌方子弹反弹
+     */
+    private void processEnemyBulletBounce(EnemyBullet bullet, BulletCollisionResult collision) {
+        // 获取子弹当前角度
+        double angle = bullet.getAngle();
+        
+        // 注意:敌方子弹使用不同的方向计算方式
+        // 计算入射向量
+        double incidentX = Math.cos(angle);
+        double incidentY = Math.sin(angle);
+        
+        // 计算反射向量 R = I - 2(I·N)N
+        double dot = incidentX * collision.normalX + incidentY * collision.normalY;
+        double reflectX = incidentX - 2 * dot * collision.normalX;
+        double reflectY = incidentY - 2 * dot * collision.normalY;
+        
+        // 计算新角度
+        double newAngle = Math.atan2(reflectY, reflectX);
+        
+        // 设置新角度
+        bullet.setAngle(newAngle);
+        
+        // 计算子弹新位置 - 防止卡墙
+        double safetyMultiplier;
+        
+        // 为边界碰撞提供额外的安全距离
+        if (collision.isBoundary) {
+            safetyMultiplier = 3.0; // 边界碰撞使用更大的安全距离
+        } else {
+            safetyMultiplier = 2.0; // 普通墙体碰撞
+        }
+        
+        // 确保子弹完全脱离碰撞体
+        double offsetX = collision.normalX * (collision.penetrationDepth * safetyMultiplier);
+        double offsetY = collision.normalY * (collision.penetrationDepth * safetyMultiplier);
+        
+        // 如果是超薄墙体，增加额外偏移以防止穿墙
+        if (collision.collidedRect != null) {
+            if (collision.collidedRect.width < 10 || collision.collidedRect.height < 10) {
+                offsetX *= 1.5;
+                offsetY *= 1.5;
+            }
+        }
+        
+        // 设置子弹位置，确保不会卡在墙内
+        bullet.setPosition((int)(collision.collisionX + offsetX), (int)(collision.collisionY + offsetY));
+        
+        // 减少速度模拟能量损失
+        bullet.decreaseSpeed(0.92);
+        
+        // 增加微小的随机扰动，防止在某些特殊情况下的循环反弹
+        if (Math.random() < 0.15) { // 15%的概率添加微小扰动
+            double noise = (Math.random() - 0.5) * 0.08; // 很小的角度噪声
+            newAngle = (newAngle + noise + 2 * Math.PI) % (2 * Math.PI);
+            bullet.setAngle(newAngle);
+        }
+        
+        // 增加反弹计数
+        bullet.bounce();
+    }
+
+    /**
+     * 检查与游戏边界的碰撞
+     */
+    private void checkBoundaryCollision(
+            BulletCollisionResult result, double startX, double startY, 
+            double endX, double endY, double bulletRadius) {
+        
+        int gameWidth = getWidth();
+        int gameHeight = getHeight();
+        
+        // 增加边界安全偏移量
+        double safetyOffset = 2.0;
+        double adjustedRadius = bulletRadius + safetyOffset;
+        
+        // 左边界
+        if (endX - adjustedRadius < 0) {
+            double t = (adjustedRadius - startX) / (endX - startX);
+            if (t >= 0 && t <= 1 && t < result.distance) {
+                result.hasCollided = true;
+                result.distance = t;
+                result.collisionX = adjustedRadius; // 确保碰撞点在边界外
+                result.collisionY = startY + t * (endY - startY);
+                result.normalX = 1;
+                result.normalY = 0;
+                result.penetrationDepth = adjustedRadius;
+                result.isBoundary = true; // 标记为边界碰撞
+            }
+        }
+        
+        // 右边界
+        if (endX + adjustedRadius > gameWidth) {
+            double t = (gameWidth - adjustedRadius - startX) / (endX - startX);
+            if (t >= 0 && t <= 1 && t < result.distance) {
+                result.hasCollided = true;
+                result.distance = t;
+                result.collisionX = gameWidth - adjustedRadius; // 确保碰撞点在边界外
+                result.collisionY = startY + t * (endY - startY);
+                result.normalX = -1;
+                result.normalY = 0;
+                result.penetrationDepth = adjustedRadius;
+                result.isBoundary = true; // 标记为边界碰撞
+            }
+        }
+        
+        // 上边界
+        if (endY - adjustedRadius < 0) {
+            double t = (adjustedRadius - startY) / (endY - startY);
+            if (t >= 0 && t <= 1 && t < result.distance) {
+                result.hasCollided = true;
+                result.distance = t;
+                result.collisionX = startX + t * (endX - startX);
+                result.collisionY = adjustedRadius; // 确保碰撞点在边界外
+                result.normalX = 0;
+                result.normalY = 1;
+                result.penetrationDepth = adjustedRadius;
+                result.isBoundary = true; // 标记为边界碰撞
+            }
+        }
+        
+        // 下边界
+        if (endY + adjustedRadius > gameHeight) {
+            double t = (gameHeight - adjustedRadius - startY) / (endY - startY);
+            if (t >= 0 && t <= 1 && t < result.distance) {
+                result.hasCollided = true;
+                result.distance = t;
+                result.collisionX = startX + t * (endX - startX);
+                result.collisionY = gameHeight - adjustedRadius; // 确保碰撞点在边界外
+                result.normalX = 0;
+                result.normalY = -1;
+                result.penetrationDepth = adjustedRadius;
+                result.isBoundary = true; // 标记为边界碰撞
+            }
+        }
+    }
+
+    /**
+     * 计算射线与矩形的交点
+     */
+    private double[] rayRectIntersection(double startX, double startY, double endX, double endY, Rectangle rect) {
+        double[] result = {Double.MAX_VALUE, -1}; // t值和碰撞面索引
+        
+        // 射线方向向量
+        double dirX = endX - startX;
+        double dirY = endY - startY;
+        
+        // 矩形的四条边
+        double[] tValues = new double[4];
+        int[] sides = new int[4];
+        
+        // 左边 (x = rect.x)
+        if (dirX != 0) {
+            double t = (rect.x - startX) / dirX;
+            double y = startY + t * dirY;
+            if (y >= rect.y && y <= rect.y + rect.height) {
+                tValues[0] = t;
+                sides[0] = 0;
+            } else {
+                tValues[0] = Double.MAX_VALUE;
+            }
+        } else {
+            tValues[0] = Double.MAX_VALUE;
+        }
+        
+        // 右边 (x = rect.x + rect.width)
+        if (dirX != 0) {
+            double t = (rect.x + rect.width - startX) / dirX;
+            double y = startY + t * dirY;
+            if (y >= rect.y && y <= rect.y + rect.height) {
+                tValues[1] = t;
+                sides[1] = 1;
+            } else {
+                tValues[1] = Double.MAX_VALUE;
+            }
+        } else {
+            tValues[1] = Double.MAX_VALUE;
+        }
+        
+        // 上边 (y = rect.y)
+        if (dirY != 0) {
+            double t = (rect.y - startY) / dirY;
+            double x = startX + t * dirX;
+            if (x >= rect.x && x <= rect.x + rect.width) {
+                tValues[2] = t;
+                sides[2] = 2;
+            } else {
+                tValues[2] = Double.MAX_VALUE;
+            }
+        } else {
+            tValues[2] = Double.MAX_VALUE;
+        }
+        
+        // 下边 (y = rect.y + rect.height)
+        if (dirY != 0) {
+            double t = (rect.y + rect.height - startY) / dirY;
+            double x = startX + t * dirX;
+            if (x >= rect.x && x <= rect.x + rect.width) {
+                tValues[3] = t;
+                sides[3] = 3;
+            } else {
+                tValues[3] = Double.MAX_VALUE;
+            }
+        } else {
+            tValues[3] = Double.MAX_VALUE;
+        }
+        
+        // 找到最小的非负t值
+        for (int i = 0; i < 4; i++) {
+            if (tValues[i] >= 0 && tValues[i] < result[0]) {
+                result[0] = tValues[i];
+                result[1] = sides[i];
+            }
+        }
+        
+        return result;
+    }
+
+    /**
+     * 增强的子弹碰撞结果类
+     */
+    private static class BulletCollisionResult {
+        boolean hasCollided = false;       // 是否发生碰撞
+        double collisionX = 0;             // 碰撞点X坐标
+        double collisionY = 0;             // 碰撞点Y坐标
+        double normalX = 0;                // 碰撞表面法线X分量
+        double normalY = 0;                // 碰撞表面法线Y分量
+        double penetrationDepth = 0;       // 穿透深度
+        double distance = Double.MAX_VALUE; // 到碰撞点的距离
+        Rectangle collidedRect = null;     // 碰撞的矩形
+        boolean isBoundary = false;        // 是否是边界碰撞
     }
     // 处理子弹反弹的辅助方法
     private void handleBulletBounce(PlayerBullet bullet, boolean isHorizontalCollision) {

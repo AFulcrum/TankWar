@@ -1271,6 +1271,7 @@ public class AITank extends AbstractTank {
         actionDelay = Math.max(50, 100 - currentLevel * 5); // 越高级反应越快
         // 调整移动速度
         currentSpeed = BASE_SPEED + Math.min(3, currentLevel / 2);
+
     }
     
     // 标准化角度到0-2π范围
@@ -1482,6 +1483,8 @@ public class AITank extends AbstractTank {
                 
                 // 创建爆炸效果
                 ExplosionManager.getInstance().createExplosion(explosionX, explosionY, explosionSize);
+
+                System.out.println("坦克被击毁，触发爆炸效果 at " + explosionX + "," + explosionY);
             }
         }
     }
@@ -1907,7 +1910,7 @@ public class AITank extends AbstractTank {
             weights.merge(stateKey, 0.1, Double::sum);
         }
     }
-    
+
     /**
      * 随机高级行为 - 增加不可预测性
      */
