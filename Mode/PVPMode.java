@@ -618,8 +618,7 @@ public class PVPMode extends JPanel {
                     "游戏结束！\n击败敌方坦克数: " + ConfigTool.getBeatNum(),
                     "游戏结束",
                     JOptionPane.INFORMATION_MESSAGE);
-            
-            // 不调用stopGame()，而是使用endGame()进行清理
+
             endGame();
             
             // 查找所属的CardLayout和主面板

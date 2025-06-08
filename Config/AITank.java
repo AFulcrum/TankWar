@@ -1271,12 +1271,6 @@ public class AITank extends AbstractTank {
         actionDelay = Math.max(50, 100 - currentLevel * 5); // 越高级反应越快
         // 调整移动速度
         currentSpeed = BASE_SPEED + Math.min(3, currentLevel / 2);
-        
-        // 日志记录
-        System.out.println("AI适应到难度等级" + currentLevel + 
-                          "，攻击性:" + String.format("%.2f", aggressiveness) + 
-                          "，智能:" + String.format("%.2f", intelligence) + 
-                          "，精度:" + String.format("%.2f", precision));
     }
     
     // 标准化角度到0-2π范围
@@ -1464,8 +1458,7 @@ public class AITank extends AbstractTank {
     public List<EnemyBullet> getBullets() {
         return bullets;
     }
-    
-    // 在EnemyTank和AITank的takeDamage方法中确保调用startExplosion
+
     @Override
     public void takeDamage(int damage) {
         if (alive && health > 0) {
@@ -1482,18 +1475,13 @@ public class AITank extends AbstractTank {
                 bullets.clear();
                 
                 // 将子弹添加到PVPMode或PVEMode的孤儿子弹列表中
-                if (bullets != null && !bullets.isEmpty()) {
-                    // 在Mode类中需要提供一个添加孤儿子弹的方法
-                    // 例如: pvpMode.addOrphanedBullets(activeBullets);
-                }
+                if (bullets != null && !bullets.isEmpty()) {}
                 
                 // 标记为死亡
                 alive = false;
                 
                 // 创建爆炸效果
                 ExplosionManager.getInstance().createExplosion(explosionX, explosionY, explosionSize);
-                
-                System.out.println("坦克被击毁，触发爆炸效果 at " + explosionX + "," + explosionY);
             }
         }
     }

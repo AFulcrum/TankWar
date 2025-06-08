@@ -50,7 +50,6 @@ public abstract class AbstractTank implements Tank {
             
             // 使用更明确的路径
             URL url = getClass().getResource("/Images/explotion.gif");
-            System.out.println("尝试加载爆炸图片: " + url);
             
             // 如果资源路径加载失败，尝试绝对路径
             if (url == null) {

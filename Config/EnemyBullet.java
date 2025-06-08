@@ -46,7 +46,6 @@ public class EnemyBullet implements Bullet {
         this.minCollisionDistance = distance;
     }
 
-    // 修改 EnemyBullet 类中的 updatePosition 方法
     @Override
     public void updatePosition() {
         if (!active) return;
@@ -92,7 +91,6 @@ public class EnemyBullet implements Bullet {
         active = false;
     }
 
-    // 修改 bounce 方法，与PlayerBullet相似的改进
     @Override
     public void bounce() {
         if (!canBounce()) {
