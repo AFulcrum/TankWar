@@ -1,4 +1,4 @@
-package Structure;
+package src.Structure;
 
 import javax.swing.*;
 import java.awt.*;

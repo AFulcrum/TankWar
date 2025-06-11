@@ -1,4 +1,4 @@
-package InterFace;
+package src.InterFace;
 
 public interface Tank {
     // 移动方法

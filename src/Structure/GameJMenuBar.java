@@ -1,4 +1,4 @@
-package Structure;
+package src.Structure;
 
 
 import javax.swing.*;
@@ -71,7 +71,7 @@ public class GameJMenuBar {
                 payDialog.setSize(500, 500);
                 JLabel textPay=new JLabel("付款码", SwingConstants.CENTER);
                 textPay.setFont(new Font("微软雅黑", Font.BOLD, 50));
-                ImageIcon icon = new ImageIcon(Objects.requireNonNull(getClass().getResource("/Images/12311.png")));
+                ImageIcon icon = new ImageIcon(Objects.requireNonNull(getClass().getResource("/src/Images/12311.png")));
                 Image image = icon.getImage().getScaledInstance(300, 300, Image.SCALE_SMOOTH);
                 JLabel imageLabel = new JLabel(new ImageIcon(image));
                 imageLabel.setHorizontalAlignment(SwingConstants.CENTER);
@@ -89,7 +89,7 @@ public class GameJMenuBar {
                 JDialog telephone=new JDialog(frame,"联系方式",true);
                 telephone.setLayout(new BorderLayout(10, 10));
                 telephone.setSize(240, 240);
-                ImageIcon gifIcon = new ImageIcon(Objects.requireNonNull(getClass().getResource("/Videos/R-C.gif")));
+                ImageIcon gifIcon = new ImageIcon(Objects.requireNonNull(getClass().getResource("/src/Videos/R-C.gif")));
                 JLabel gifLabel = new JLabel(gifIcon);
                 gifLabel.setHorizontalAlignment(SwingConstants.CENTER);
                 telephone.add(gifLabel,BorderLayout.CENTER);

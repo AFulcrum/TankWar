@@ -1,4 +1,4 @@
-package Config;
+package src.Config;
 
 import java.io.*;
 import java.util.Properties;

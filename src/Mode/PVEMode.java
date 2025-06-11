@@ -1,16 +1,15 @@
 // PVEMode.java
-package Mode;
+package src.Mode;
 
-import Config.*;
-import InterFace.CollisionDetector;
-import Structure.PVEWall;
+import src.Config.*;
+import src.InterFace.CollisionDetector;
+import src.Structure.PVEWall;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
 import java.util.Random;
 
 public class PVEMode extends JPanel implements KeyListener {

@@ -1,8 +1,10 @@
-import Structure.GameJFrame;
-import Structure.HomeIcon;
-import Structure.GameJMenuBar;
-import Structure.Start_Animation;
-import Structure.ModeCardLayOut;
+package src;
+
+import src.Structure.GameJFrame;
+import src.Structure.HomeIcon;
+import src.Structure.GameJMenuBar;
+import src.Structure.Start_Animation;
+import src.Structure.ModeCardLayOut;
 
 import java.awt.*;
 

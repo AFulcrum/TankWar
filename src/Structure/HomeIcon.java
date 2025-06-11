@@ -1,11 +1,11 @@
-package Structure;
+package src.Structure;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
-import static Structure.Start_Animation.JLabel3D;
+import static src.Structure.Start_Animation.JLabel3D;
 public class HomeIcon {
     //动画
     private static final int ANIMATION_DURATION = 1000;// 动画总时长(毫秒)

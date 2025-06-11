@@ -1,4 +1,4 @@
-package InterFace;
+package src.InterFace;
 
 //碰撞检测器
 public interface CollisionDetector {

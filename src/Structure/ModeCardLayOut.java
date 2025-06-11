@@ -1,10 +1,10 @@
-package Structure;
+package src.Structure;
 
-import Config.ConfigTool;
-import Config.PlayerTank;
-import Config.SimpleCollisionDetector;
-import Mode.PVEMode;
-import Mode.PVPMode;
+import src.Config.ConfigTool;
+import src.Config.PlayerTank;
+import src.Config.SimpleCollisionDetector;
+import src.Mode.PVEMode;
+import src.Mode.PVPMode;
 
 import java.awt.*;
 import java.awt.event.ComponentAdapter;
@@ -189,7 +189,7 @@ public class ModeCardLayOut {
             label.setFont(new Font("华文行楷", Font.BOLD, 25));
 
             //添加坦克图片
-            String tankImagePath="/Images/TankImage/tank"+(i+1)+"/up1.png";
+            String tankImagePath="/src/Images/TankImage/tank"+(i+1)+"/up1.png";
             try{
                 URL tankImageUrl=ModeCardLayOut.class.getResource(tankImagePath);
                 if(tankImageUrl==null){

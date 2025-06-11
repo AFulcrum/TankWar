@@ -1,4 +1,4 @@
-package Config;
+package src.Config;
 
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;

@@ -1,8 +1,8 @@
-package Config;
+package src.Config;
 
-import InterFace.CollisionDetector;
-import Structure.PVPWall;
-import Structure.PVEWall;
+import src.InterFace.CollisionDetector;
+import src.Structure.PVPWall;
+import src.Structure.PVEWall;
 
 import java.awt.*;
 import java.util.List;

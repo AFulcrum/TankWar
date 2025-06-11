@@ -1,55 +1,35 @@
-package Config;
+package src.Config;
 
-import InterFace.Bullet;
+import src.InterFace.Bullet;
 
-import javax.swing.*;
 import java.awt.*;
 
-public class PlayerBullet implements Bullet {
+public class EnemyBullet implements Bullet {
+    public static final Object DEFAULT_SPEED = 15;
     private int x;
     private int y;
     private int width = 10;
     private int height = 10;
     private int radius = 5; // 子弹半径
-    private int speed = 15;
+    private int speed = 10; // 比玩家子弹稍慢
     private int damage = 1;
     private boolean active = true;
-    private double angle; // 子弹飞行角度
+    private double angle;
     private Color bulletColor;
-    private Image bulletImage;
+    private double dx, dy; // 方向向量
     private int bounceCount = 0;
     private static final int MAX_BOUNCE = 6; // 最大反弹次数
-    private static final int BULLET_LIFETIME = 10000; // 子弹最大存活时间10秒
+    private double travelDistance = 0;
+    private double minCollisionDistance = 20;
 
-
-    public PlayerBullet(int x, int y, double angle) {
-        this.x = x - width/2; // 调整初始位置，使子弹中心对准发射点
+    public EnemyBullet(int x, int y, double angle) {
+        this.x = x - width/2;
         this.y = y - height/2;
         this.angle = angle;
-        // 根据坦克类型设置不同颜色
-        switch (ConfigTool.getSelectedTank()) {
-            case 1:
-                bulletColor = new Color(255, 69, 0); // 红色
-                break;
-            case 2:
-                bulletColor = new Color(30, 144, 255); // 蓝色
-                break;
-            case 3:
-                bulletColor = new Color(50, 205, 50); // 绿色
-                break;
-            case 4:
-                bulletColor = new Color(255, 165, 0); // 橙色
-                break;
-            default:
-                bulletColor = new Color(255, 69, 0); // 红色
-        }
-        // 添加子弹自动消失的定时器
-        new Timer(BULLET_LIFETIME, e -> {
-            deactivate();
-            ((Timer)e.getSource()).stop();
-        }).start();
+        this.dx = Math.sin(angle);
+        this.dy = -Math.cos(angle);
+        bulletColor = new Color(154, 154, 154, 255); // 半透明红色
     }
-
 
     @Override
     public int getSpeed() {
@@ -61,11 +41,37 @@ public class PlayerBullet implements Bullet {
         return damage;
     }
 
+    public void setMinCollisionDistance(double distance) {
+        this.minCollisionDistance = distance;
+    }
+
     @Override
     public void updatePosition() {
         if (!active) return;
-        x += speed * Math.sin(angle);
-        y -= speed * Math.cos(angle);
+
+        double oldX = x;
+        double oldY = y;
+
+        // 对于高速子弹使用分步移动防止穿墙
+        if (speed > 10) {
+            // 将移动分为多个小步骤，确保不会在单帧内跳过细墙
+            int steps = (int)Math.ceil(speed / 8.0);
+            double stepSize = speed / steps;
+            
+            for (int i = 0; i < steps; i++) {
+                // 增量更新位置
+                x += Math.cos(angle) * stepSize;
+                y += Math.sin(angle) * stepSize;
+            }
+        } else {
+            // 正常速度直接更新
+            x += Math.cos(angle) * speed;
+            y += Math.sin(angle) * speed;
+        }
+
+        // 计算移动距离
+        double moveDist = Math.sqrt(Math.pow(x-oldX, 2) + Math.pow(y-oldY, 2));
+        travelDistance += moveDist;
     }
 
     @Override
@@ -83,6 +89,7 @@ public class PlayerBullet implements Bullet {
     public void deactivate() {
         active = false;
     }
+
     @Override
     public void bounce() {
         if (!canBounce()) {
@@ -93,21 +100,26 @@ public class PlayerBullet implements Bullet {
         // 获取当前移动方向
         double dx = Math.sin(angle);
         double dy = -Math.cos(angle);
+        
+        // 增加穿透系数，防止卡墙
+        double penetrationFactor = 1.8;
 
         // 判断反弹方向并确定更精确的后退距离
         if (Math.abs(dx) > Math.abs(dy)) {
             // 水平方向反弹
             angle = Math.PI - angle;
-            
+            this.dx = -dx;
+
             // 增加穿透距离计算，防止卡墙
-            int penetrationDepth = Math.max(10, (int)(speed * Math.abs(dx) * 1.5));
+            int penetrationDepth = Math.max(10, (int)(speed * Math.abs(dx) * penetrationFactor));
             x -= (int)(Math.signum(dx) * penetrationDepth);
         } else {
             // 垂直方向反弹
             angle = -angle;
-            
+            this.dy = -dy;
+
             // 增加穿透距离计算，防止卡墙
-            int penetrationDepth = Math.max(10, (int)(speed * Math.abs(dy) * 1.5));
+            int penetrationDepth = Math.max(10, (int)(speed * Math.abs(dy) * penetrationFactor));
             y += (int)(Math.signum(dy) * penetrationDepth);
         }
 
@@ -131,7 +143,6 @@ public class PlayerBullet implements Bullet {
         return bounceCount < MAX_BOUNCE;
     }
 
-
     @Override
     public void draw(Graphics g) {
         if (!active) return;
@@ -150,8 +161,12 @@ public class PlayerBullet implements Bullet {
     public double getAngle() {
         return angle;
     }
+
     public void setAngle(double newAngle) {
         this.angle = (newAngle + 2 * Math.PI) % (2 * Math.PI);
+        // 更新方向向量
+        this.dx = Math.sin(this.angle);
+        this.dy = -Math.cos(this.angle);
     }
 
     public void adjustPosition(int dx, int dy) {
@@ -159,23 +174,33 @@ public class PlayerBullet implements Bullet {
         this.y += dy;
     }
 
-    public double getX() {
-        return x + width / 2.0; // 返回子弹中心的X坐标
+    public boolean canCollide() {
+        return active && travelDistance >= minCollisionDistance;
     }
 
-    public double getY() {
-        return y + height / 2.0; // 返回子弹中心的Y坐标
+    // 添加获取子弹已飞行距离的方法
+    public double getTravelDistance() {
+        return travelDistance;
     }
 
+    /**
+     * 获取子弹半径
+     */
     public int getRadius() {
         return radius;
     }
 
+    /**
+     * 设置子弹位置（基于中心点）
+     */
     public void setPosition(int centerX, int centerY) {
         this.x = centerX - width/2;
         this.y = centerY - height/2;
     }
 
+    /**
+     * 减少子弹速度（模拟能量损失）
+     */
     public void decreaseSpeed(double factor) {
         this.speed = Math.max(5, (int)(this.speed * factor));
     }

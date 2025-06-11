@@ -1,4 +1,4 @@
-package Structure;
+package src.Structure;
 
 import java.awt.*;
 import java.util.ArrayList;

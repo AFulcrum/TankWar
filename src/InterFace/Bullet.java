@@ -1,4 +1,4 @@
-package InterFace;
+package src.InterFace;
 
 import java.awt.*;
 

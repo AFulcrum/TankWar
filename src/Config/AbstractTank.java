@@ -1,7 +1,7 @@
-package Config;
+package src.Config;
 
-import InterFace.CollisionDetector;
-import InterFace.Tank;
+import src.InterFace.CollisionDetector;
+import src.InterFace.Tank;
 
 import javax.swing.*;
 import java.awt.*;
@@ -49,7 +49,7 @@ public abstract class AbstractTank implements Tank {
             explosionFrames = new ArrayList<>();
             
             // 使用更明确的路径
-            URL url = getClass().getResource("/Images/explotion.gif");
+            URL url = getClass().getResource("/src/Images/explotion.gif");
             
             // 如果资源路径加载失败，尝试绝对路径
             if (url == null) {

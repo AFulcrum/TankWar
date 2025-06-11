@@ -1,6 +1,6 @@
-package Config;
+package src.Config;
 
-import InterFace.CollisionDetector;
+import src.InterFace.CollisionDetector;
 
 import javax.swing.*;
 import java.awt.*;
@@ -8,13 +8,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-import static Structure.ModeCardLayOut.PVPModeHeight;
-import static Structure.ModeCardLayOut.PVPModeWidth;
+import static src.Structure.ModeCardLayOut.PVPModeHeight;
+import static src.Structure.ModeCardLayOut.PVPModeWidth;
 
 public class EnemyTank extends AbstractTank {
     private boolean alive = true;
     private double angle = 0; // 当前朝向角度，0为向右，逆时针为正（数学坐标系）
-    private final String tankPath = "/Images/TankImage/EnemyTank/tankR.gif";
+    private final String tankPath = "/src/Images/TankImage/EnemyTank/tankR.gif";
     private Image tankImage;
     private final Random random = new Random();
     private double moveSpeed = 9; // 移动速度

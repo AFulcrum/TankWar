@@ -1,9 +1,9 @@
-package Mode;
+package src.Mode;
 
-import Config.*;
-import InterFace.CollisionDetector;
-import InterFace.Bullet;
-import Structure.PVPWall;
+import src.Config.*;
+import src.InterFace.CollisionDetector;
+import src.InterFace.Bullet;
+import src.Structure.PVPWall;
 
 import java.awt.*;
 import java.awt.event.*;
@@ -705,8 +705,7 @@ public class PVPMode extends JPanel {
     private void processEnemyBulletBounce(EnemyBullet bullet, BulletCollisionResult collision) {
         // 获取子弹当前角度
         double angle = bullet.getAngle();
-        
-        // 注意:敌方子弹使用不同的方向计算方式
+
         // 计算入射向量
         double incidentX = Math.cos(angle);
         double incidentY = Math.sin(angle);

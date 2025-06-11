@@ -1,6 +1,6 @@
-package Config;
+package src.Config;
 
-import InterFace.CollisionDetector;
+import src.InterFace.CollisionDetector;
 import javax.swing.*;
 import java.awt.*;
 import java.io.*;
@@ -11,7 +11,7 @@ import java.util.List;
 public class AITank extends AbstractTank {
     // 图像和方向
     private double angle = 0; // 0表示向右，逆时针为正（数学坐标系）
-    private final String tankPath = "/Images/TankImage/EnemyTank/tankR.gif";
+    private final String tankPath = "/src/Images/TankImage/EnemyTank/tankR.gif";
     private Image tankImage;
     
     // 移动和碰撞

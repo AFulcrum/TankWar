@@ -1,6 +1,5 @@
-package Config;
+package src.Config;
 
-import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.net.URL;
@@ -29,7 +28,7 @@ public class ExplosionManager {
     // 加载爆炸动画帧
     private void loadExplosionFrames() {
         try {
-            URL url = getClass().getResource("/Images/explotion.gif");
+            URL url = getClass().getResource("/src/Images/explotion.gif");
             if (url == null) {
                 System.err.println("找不到爆炸GIF文件");
                 return;

@@ -1,6 +1,6 @@
-package Config;
+package src.Config;
 
-import InterFace.CollisionDetector;
+import src.InterFace.CollisionDetector;
 import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.util.ArrayList;
@@ -35,8 +35,8 @@ public class PlayerTank extends AbstractTank {
     private void loadTankImage() {
         try {
             String[] paths = {
-                    "/Images/TankImage/tank" + tankType + "/up1.png",
-                    "/Images/TankImage/tank" + tankType + "/up2.png"
+                    "/src/Images/TankImage/tank" + tankType + "/up1.png",
+                    "/src/Images/TankImage/tank" + tankType + "/up2.png"
             };
             for (int i = 0; i < paths.length; i++) {
                 java.net.URL url = getClass().getResource(paths[i]);
